@@ -1,0 +1,212 @@
+'use server';
+
+import OpenAI from 'openai';
+import { db } from '@/db';
+import { cases, caseStages, stageOptions, users } from '@/db/schema';
+import { verifyAdminToken } from './admin';
+import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
+
+// Initialize OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Zod Schema for the expected AI output (Structured Output)
+const OptionSchema = z.object({
+    text: z.string(),
+    isCorrect: z.boolean(),
+    scoreWeight: z.number(),
+    feedback: z.string(),
+});
+
+const StageSchema = z.object({
+    stageOrder: z.number(),
+    narrative: z.string(),
+    clinicalData: z.object({
+        BP: z.string().optional(),
+        HR: z.number().optional(),
+        RR: z.number().optional(),
+        Temp: z.number().optional(),
+        SpO2: z.number().optional(),
+        notes: z.array(z.string()).optional(),
+    }).passthrough(),
+    options: z.array(OptionSchema),
+});
+
+const CaseSchema = z.object({
+    title: z.string(),
+    description: z.string(),
+    clinicalDomain: z.string(),
+    difficultyLevel: z.enum(['Foundation', 'Core', 'Advanced']),
+    stages: z.array(StageSchema),
+});
+
+export async function generateCaseAction(domain: string, difficulty: string, prompt: string) {
+    // 1. Verify Admin
+    if (!await verifyAdminToken()) {
+        return { success: false, message: 'Unauthorized' };
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+        return { success: false, message: 'OpenAI API Key is missing' };
+    }
+
+    try {
+        // 2. Call OpenAI with modern tools API
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o", // Use a smart model for medical safety
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a senior medical educator for UKMLA students. 
+                    Generate a realistic clinical case based on NICE guidelines.
+                    The case should test clinical reasoning and patient management.`
+                },
+                {
+                    role: "user",
+                    content: `Create a '${difficulty}' difficulty case in the domain of '${domain}'.
+                    Scenario details: ${prompt}.
+                    Include 2-3 stages. Each stage must have options (some correct, some incorrect/dangerous).
+                    Ensure clinical data (vitals) are realistic.`
+                }
+            ],
+            tools: [
+                {
+                    type: "function",
+                    function: {
+                        name: "create_case",
+                        description: "Generates a medical case structure",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                title: { type: "string" },
+                                description: { type: "string" },
+                                clinicalDomain: { type: "string" },
+                                difficultyLevel: { type: "string", enum: ["Foundation", "Core", "Advanced"] },
+                                stages: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            stageOrder: { type: "integer" },
+                                            narrative: { type: "string" },
+                                            clinicalData: {
+                                                type: "object",
+                                                properties: {
+                                                    BP: { type: "string" },
+                                                    HR: { type: "integer" },
+                                                    RR: { type: "integer" },
+                                                    Temp: { type: "number" },
+                                                    SpO2: { type: "integer" },
+                                                    notes: { type: "array", items: { type: "string" } }
+                                                }
+                                            },
+                                            options: {
+                                                type: "array",
+                                                items: {
+                                                    type: "object",
+                                                    properties: {
+                                                        text: { type: "string" },
+                                                        isCorrect: { type: "boolean" },
+                                                        scoreWeight: { type: "integer" },
+                                                        feedback: { type: "string" }
+                                                    },
+                                                    required: ["text", "isCorrect", "scoreWeight", "feedback"]
+                                                }
+                                            }
+                                        },
+                                        required: ["stageOrder", "narrative", "options"]
+                                    }
+                                }
+                            },
+                            required: ["title", "description", "clinicalDomain", "difficultyLevel", "stages"]
+                        }
+                    }
+                }
+            ],
+            tool_choice: { type: "function", function: { name: "create_case" } }
+        });
+
+        const toolCall = completion.choices[0].message.tool_calls?.[0];
+        if (!toolCall || toolCall.type !== 'function') throw new Error("No tool call generated");
+
+        const aiData = JSON.parse(toolCall.function.arguments);
+
+
+        // validate with Zod
+        const validatedCase = CaseSchema.parse(aiData);
+
+        // 3. Ensure AI system user exists in database
+        const AI_USER_ID = 'system_ai_generator';
+        const AI_USER_EMAIL = 'ai@nextmed.system';
+
+        // Check if AI user exists, if not create it
+        const existingAiUser = await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, AI_USER_ID)
+        });
+
+        if (!existingAiUser) {
+            await db.insert(users).values({
+                id: AI_USER_ID,
+                email: AI_USER_EMAIL,
+                role: 'admin',
+            }).onConflictDoNothing();
+        }
+
+        // 4. Insert into DB (Transaction would be better, but keeping it simple for now)
+        const newCase = await db.insert(cases).values({
+            userId: AI_USER_ID,
+            title: validatedCase.title,
+            description: validatedCase.description,
+            clinicalDomain: validatedCase.clinicalDomain,
+            difficultyLevel: validatedCase.difficultyLevel,
+            source: 'ai',
+            verificationStatus: 'draft', // Requires human review
+            qualityScore: 50, // Default AI score
+            isPublished: false,
+        }).returning();
+
+        const caseId = newCase[0].id;
+
+        for (const stage of validatedCase.stages) {
+            const newStage = await db.insert(caseStages).values({
+                caseId: caseId,
+                stageOrder: stage.stageOrder,
+                narrative: stage.narrative,
+                clinicalData: stage.clinicalData,
+            }).returning();
+
+            if (stage.options.length > 0) {
+                await db.insert(stageOptions).values(
+                    stage.options.map(opt => ({
+                        stageId: newStage[0].id,
+                        text: opt.text,
+                        isCorrect: opt.isCorrect,
+                        scoreWeight: opt.scoreWeight,
+                        feedback: opt.feedback
+                    }))
+                );
+            }
+        }
+
+        revalidatePath('/admin');
+        return { success: true, message: 'Case generated successfully', caseId };
+
+    } catch (error: any) {
+        console.error("AI Generation Error:", error);
+        console.error("Error details:", {
+            message: error?.message,
+            status: error?.status,
+            type: error?.type,
+            code: error?.code
+        });
+
+        // Return more detailed error message
+        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        return {
+            success: false,
+            message: `Failed to generate case: ${errorMessage}`
+        };
+    }
+}

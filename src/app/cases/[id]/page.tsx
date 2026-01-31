@@ -2,14 +2,14 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect, notFound } from 'next/navigation';
 import { db } from '@/db';
 import { cases } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 /**
  * Single Case View - Server Component
  * Displays a specific case with all stages and options
- * Only accessible by the case owner
+ * Accessible by: case owner OR anyone if case is published
  */
 export default async function CasePage({
     params,
@@ -30,11 +30,14 @@ export default async function CasePage({
         notFound();
     }
 
-    // 3. Fetch case with ownership verification
+    // 3. Fetch case - allow if published OR user owns it
     const medicalCase = await db.query.cases.findFirst({
         where: and(
             eq(cases.id, caseId),
-            eq(cases.userId, userId) // CRITICAL: User can only view their own cases
+            or(
+                eq(cases.isPublished, true), // Anyone can view published cases
+                eq(cases.userId, userId) // Owner can view their drafts
+            )
         ),
         with: {
             stages: {
@@ -46,7 +49,7 @@ export default async function CasePage({
         },
     });
 
-    // 4. Return 404 if case not found or user doesn't own it
+    // 4. Return 404 if case not found or user doesn't have access
     if (!medicalCase) {
         notFound();
     }
@@ -61,9 +64,8 @@ export default async function CasePage({
                             ← Back to Cases
                         </Button>
                     </Link>
-                    <Link href={`/cases/${caseId}/edit`}>
-                        <Button size="sm">Edit Case</Button>
-                    </Link>
+
+
                 </div>
 
                 <div className="flex items-start justify-between">
@@ -95,76 +97,20 @@ export default async function CasePage({
                 </div>
             </div>
 
-            {/* Stages */}
-            <div className="space-y-8">
-                <h2 className="text-2xl font-bold">Case Stages</h2>
-
-                {medicalCase.stages.length === 0 ? (
-                    <div className="text-center py-12 border border-dashed rounded-lg">
-                        <p className="text-muted-foreground">
-                            No stages added yet. Edit the case to add stages.
-                        </p>
-                    </div>
-                ) : (
-                    medicalCase.stages.map((stage, index) => (
-                        <div
-                            key={stage.id}
-                            className="border rounded-lg p-6 bg-slate-900/20"
-                        >
-                            <div className="flex items-center gap-3 mb-4">
-                                <span className="text-sm font-semibold px-3 py-1 bg-primary/20 text-primary rounded">
-                                    Stage {stage.stageOrder}
-                                </span>
-                            </div>
-
-                            <p className="text-lg mb-4 whitespace-pre-wrap">{stage.narrative}</p>
-
-                            {stage.clinicalData && (
-                                <div className="mb-4 p-4 bg-background/50 rounded">
-                                    <h4 className="font-semibold mb-2">Clinical Data</h4>
-                                    <pre className="text-sm">
-                                        {JSON.stringify(stage.clinicalData as Record<string, unknown>, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-
-                            {stage.options.length > 0 && (
-                                <div>
-                                    <h4 className="font-semibold mb-3">Decision Options</h4>
-                                    <div className="space-y-2">
-                                        {stage.options.map((option) => (
-                                            <div
-                                                key={option.id}
-                                                className={`p-4 rounded border ${option.isCorrect
-                                                    ? 'border-green-500/30 bg-green-500/5'
-                                                    : 'border-slate-700'
-                                                    }`}
-                                            >
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <p className="flex-1">{option.text}</p>
-                                                    <div className="flex items-center gap-2 ml-4">
-                                                        {option.isCorrect && (
-                                                            <span className="text-xs px-2 py-1 bg-green-500/20 text-green-500 rounded">
-                                                                Correct
-                                                            </span>
-                                                        )}
-                                                        <span className="text-xs px-2 py-1 bg-slate-500/20 rounded">
-                                                            {option.scoreWeight > 0 ? '+' : ''}
-                                                            {option.scoreWeight}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {option.feedback}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))
-                )}
+            {/* Case Preview (No Spoilers) */}
+            <div className="mt-12 text-center p-12 bg-slate-900/10 rounded-xl border border-dashed">
+                <div className="max-w-md mx-auto">
+                    <h3 className="text-xl font-semibold mb-3">Ready to Practice?</h3>
+                    <p className="text-muted-foreground mb-6">
+                        Start the simulation to test your clinical reasoning skills.
+                        You'll interact with the patient and make decisions in real-time.
+                    </p>
+                    <Link href={`/cases/${caseId}/simulate`}>
+                        <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto">
+                            ▶ Start Simulation
+                        </Button>
+                    </Link>
+                </div>
             </div>
         </div>
     );

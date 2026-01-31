@@ -10,6 +10,7 @@ import {
 } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -45,6 +46,16 @@ export default function RootLayout({
                   </SignUpButton>
                 </SignedOut>
                 <SignedIn>
+                  <Link href="/cases">
+                    <Button variant="ghost" size="sm">
+                      Cases
+                    </Button>
+                  </Link>
+                  <Link href="/leaderboard">
+                    <Button variant="ghost" size="sm">
+                      🏆 Leaderboard
+                    </Button>
+                  </Link>
                   <UserButton afterSignOutUrl="/" />
                 </SignedIn>
               </div>

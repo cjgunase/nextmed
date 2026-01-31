@@ -3,7 +3,7 @@ import { config } from 'dotenv';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { eq } from 'drizzle-orm';
-import { usersTable } from './db/schema';
+import { users } from './db/schema';
 
 // Load .env.local for Next.js
 config({ path: '.env.local' });
@@ -12,36 +12,25 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle({ client: sql });
 
 async function main() {
-    const user: typeof usersTable.$inferInsert = {
-        name: 'John',
-        age: 30,
-        email: 'john@example.com',
+    const newUsers: typeof users.$inferInsert = {
+        id: 'test_user_123',
+        email: 'test@example.com',
+        role: 'student',
     };
 
-    await db.insert(usersTable).values(user);
-    console.log('New user created!')
+    await db.insert(users).values(newUsers);
 
-    const users = await db.select().from(usersTable);
-    console.log('Getting all users from the database: ', users)
-    /*
-    const users: {
-      id: number;
-      name: string;
-      age: number;
-      email: string;
-    }[]
-    */
+    // Check if inserted
+    const result = await db.select().from(users);
+    console.log('Users in DB:', result);
 
-    await db
-        .update(usersTable)
-        .set({
-            age: 31,
-        })
-        .where(eq(usersTable.email, user.email));
-    console.log('User info updated!')
+    const user = await db.select().from(users).where(eq(users.email, 'test@example.com'));
 
-    await db.delete(usersTable).where(eq(usersTable.email, user.email));
-    console.log('User deleted!')
+    if (user.length > 0) {
+        // Cleanup
+        await db.delete(users).where(eq(users.email, 'test@example.com'));
+        console.log('User deleted!');
+    }
 }
 
 main();

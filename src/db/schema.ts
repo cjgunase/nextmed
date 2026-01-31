@@ -44,6 +44,10 @@ export const cases = pgTable('cases', {
     description: text('description').notNull(),
     clinicalDomain: text('clinical_domain').notNull(), // e.g., "Cardiology", "Respiratory"
     difficultyLevel: text('difficulty_level', { enum: difficultyLevels }).notNull(),
+    source: text('source').default('human').notNull(), // 'human' or 'ai'
+    verificationStatus: text('verification_status').default('draft').notNull(), // 'draft', 'verified', 'rejected'
+    qualityScore: integer('quality_score').default(0).notNull(), // 0-100 score
+    rigourScore: integer('rigour_score').default(0).notNull(), // 0-100 human expert quality assessment
     isPublished: boolean('is_published').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -96,12 +100,54 @@ export const stageOptions = pgTable(
 );
 
 // ============================================================================
+// TABLE: student_attempts (Track Student Case Completions)
+// ============================================================================
+
+export const studentAttempts = pgTable(
+    'student_attempts',
+    {
+        id: serial('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        caseId: integer('case_id')
+            .notNull()
+            .references(() => cases.id, { onDelete: 'cascade' }),
+        score: integer('score').notNull().default(0),
+        completedAt: timestamp('completed_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        // Index for fast lookups by user and case
+        userIdIdx: index('student_attempts_user_id_idx').on(table.userId),
+        caseIdIdx: index('student_attempts_case_id_idx').on(table.caseId),
+    })
+);
+
+// ============================================================================
+// TABLE: user_stats (Aggregated Student Performance for Leaderboard)
+// ============================================================================
+
+export const userStats = pgTable('user_stats', {
+    userId: text('user_id')
+        .primaryKey()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    totalAttempts: integer('total_attempts').notNull().default(0),
+    totalScore: integer('total_score').notNull().default(0),
+    averageScore: integer('average_score').notNull().default(0), // Stored as integer for simplicity
+    lastActivityAt: timestamp('last_activity_at').defaultNow().notNull(),
+});
+
+// ============================================================================
 // RELATIONS (For Nested Queries)
 // ============================================================================
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
     cases: many(cases), // User's created cases
-    // Future: user progress, attempt history, etc.
+    attempts: many(studentAttempts), // Student's case attempts
+    stats: one(userStats, {
+        fields: [users.id],
+        references: [userStats.userId],
+    }),
 }));
 
 export const casesRelations = relations(cases, ({ one, many }) => ({
@@ -110,6 +156,7 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
         references: [users.id],
     }),
     stages: many(caseStages),
+    attempts: many(studentAttempts), // Track who attempted this case
 }));
 
 export const caseStagesRelations = relations(caseStages, ({ one, many }) => ({
@@ -124,6 +171,24 @@ export const stageOptionsRelations = relations(stageOptions, ({ one }) => ({
     stage: one(caseStages, {
         fields: [stageOptions.stageId],
         references: [caseStages.id],
+    }),
+}));
+
+export const studentAttemptsRelations = relations(studentAttempts, ({ one }) => ({
+    user: one(users, {
+        fields: [studentAttempts.userId],
+        references: [users.id],
+    }),
+    case: one(cases, {
+        fields: [studentAttempts.caseId],
+        references: [cases.id],
+    }),
+}));
+
+export const userStatsRelations = relations(userStats, ({ one }) => ({
+    user: one(users, {
+        fields: [userStats.userId],
+        references: [users.id],
     }),
 }));
 
@@ -142,6 +207,12 @@ export type NewCaseStage = typeof caseStages.$inferInsert;
 
 export type StageOption = typeof stageOptions.$inferSelect;
 export type NewStageOption = typeof stageOptions.$inferInsert;
+
+export type StudentAttempt = typeof studentAttempts.$inferSelect;
+export type NewStudentAttempt = typeof studentAttempts.$inferInsert;
+
+export type UserStats = typeof userStats.$inferSelect;
+export type NewUserStats = typeof userStats.$inferInsert;
 
 // ============================================================================
 // CLINICAL DATA TYPE (For the JSONB field)

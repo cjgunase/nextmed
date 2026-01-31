@@ -62,7 +62,7 @@ export const createCaseStageSchema = z.object({
     caseId: z.number().int().positive('Invalid case ID'),
     stageOrder: z.number().int().positive('Stage order must be positive'),
     narrative: z.string().min(10, 'Narrative must be at least 10 characters'),
-    clinicalData: z.record(z.any()).optional(),
+    clinicalData: z.record(z.string(), z.any()).optional(),
     mediaUrl: z.union([z.string().url(), z.literal('')]).optional().nullable(),
 });
 
@@ -75,7 +75,7 @@ export const updateCaseStageSchema = z.object({
     id: z.number().int().positive('Invalid stage ID'),
     stageOrder: z.number().int().positive().optional(),
     narrative: z.string().min(10).optional(),
-    clinicalData: z.record(z.any()).optional(),
+    clinicalData: z.record(z.string(), z.any()).optional(),
     mediaUrl: z.union([z.string().url(), z.literal('')]).optional().nullable(),
 });
 

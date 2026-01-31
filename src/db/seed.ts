@@ -82,8 +82,8 @@ async function main() {
     console.log('👤 Seeding users...');
     await db.insert(users).values([
         {
-            id: 'user_2example123',
-            email: 'student@ukmla.ac.uk',
+            id: 'user_38zNKdM9PQvaMhsqkljCfE7R4W7',
+            email: 'student@nextmed.app',
             role: 'student',
         },
         {
@@ -99,7 +99,7 @@ async function main() {
     console.log('🏥 Seeding Case 1: Acute Chest Pain - STEMI...');
 
     const [case1] = await db.insert(cases).values({
-        userId: 'user_2example123', // Assign to student user
+        userId: 'user_38zNKdM9PQvaMhsqkljCfE7R4W7', // Assign to specific student user
         title: 'Acute Chest Pain in 62-Year-Old Male',
         description: 'A 62-year-old man presents to A&E with sudden-onset crushing chest pain radiating to his left arm and jaw. Past medical history of HTN, Type 2 DM, and 40 pack-year smoking history.',
         clinicalDomain: 'Cardiology',
@@ -249,7 +249,7 @@ async function main() {
     console.log('🏥 Seeding Case 2: Sepsis Management...');
 
     const [case2] = await db.insert(cases).values({
-        userId: 'user_2example123', // Assign to student user
+        userId: 'user_38zNKdM9PQvaMhsqkljCfE7R4W7', // Assign to specific student user
         title: 'Acute Confusion and Hypotension in 78-Year-Old Female',
         description: 'A 78-year-old nursing home resident presents with 3-day history of reduced oral intake, confusion, and a productive cough. She is hypotensive and tachycardic.',
         clinicalDomain: 'Critical Care',
@@ -360,7 +360,7 @@ async function main() {
     console.log('🏥 Seeding Case 3: Anaphylaxis...');
 
     const [case3] = await db.insert(cases).values({
-        userId: 'user_2example123', // Assign to student user
+        userId: 'user_38zNKdM9PQvaMhsqkljCfE7R4W7', // Assign to specific student user
         title: 'Acute Allergic Reaction Post-Antibiotic',
         description: 'A 34-year-old woman develops facial swelling, wheeze, and hypotension 10 minutes after first dose of amoxicillin for UTI.',
         clinicalDomain: 'Emergency Medicine',
@@ -462,7 +462,7 @@ async function main() {
     console.log('🏥 Seeding Case 4: DKA...');
 
     const [case4] = await db.insert(cases).values({
-        userId: 'user_2example123', // Assign to student user
+        userId: 'user_38zNKdM9PQvaMhsqkljCfE7R4W7', // Assign to specific student user
         title: 'Vomiting and Abdominal Pain in Type 1 Diabetic',
         description: 'A 19-year-old with Type 1 diabetes presents with 2-day history of vomiting, abdominal pain, and polyuria. She stopped her insulin due to nausea.',
         clinicalDomain: 'Endocrinology',
@@ -576,7 +576,7 @@ async function main() {
     console.log('🏥 Seeding Case 5: Acute Asthma...');
 
     const [case5] = await db.insert(cases).values({
-        userId: 'user_2example123', // Assign to student user
+        userId: 'user_38zNKdM9PQvaMhsqkljCfE7R4W7', // Assign to specific student user
         title: 'Shortness of Breath in Known Asthmatic',
         description: 'A 25-year-old woman with asthma presents to A&E with worsening breathlessness and wheeze over 24 hours, not responding to her salbutamol inhaler.',
         clinicalDomain: 'Respiratory',
