@@ -30,7 +30,7 @@ const StageSchema = z.object({
         Temp: z.number().optional(),
         SpO2: z.number().optional(),
         notes: z.array(z.string()).optional(),
-    }).passthrough(),
+    }).passthrough().optional().default({}),
     options: z.array(OptionSchema),
 });
 
@@ -116,7 +116,7 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
                                                 }
                                             }
                                         },
-                                        required: ["stageOrder", "narrative", "options"]
+                                        required: ["stageOrder", "narrative", "clinicalData", "options"]
                                     }
                                 }
                             },
