@@ -1,33 +1,17 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware(async (auth, req) => {
-    // Custom Admin Auth Logic
-    if (req.nextUrl.pathname.startsWith('/admin')) {
-        const adminToken = process.env.ADMIN_ACCESS_TOKEN;
-        const tokenCookie = req.cookies.get('admin_token');
-        const tokenParam = req.nextUrl.searchParams.get('token');
+// Define public routes that don't require authentication
+const isPublicRoute = createRouteMatcher([
+    '/',
+    '/sign-in(.*)',
+    '/sign-up(.*)',
+    '/api/webhooks(.*)',
+]);
 
-        // Case 1: Already has valid cookie
-        if (tokenCookie && tokenCookie.value === adminToken) {
-            return NextResponse.next();
-        }
-
-        // Case 2: Has valid query param -> Set cookie and redirect to clean URL
-        if (tokenParam && tokenParam === adminToken) {
-            const response = NextResponse.redirect(new URL('/admin', req.url));
-            response.cookies.set('admin_token', tokenParam, {
-                path: '/',
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                maxAge: 60 * 60 * 24 * 7 // 1 week
-            });
-            return response;
-        }
-
-        // Case 3: Unauthorized -> Redirect to home
-        return NextResponse.redirect(new URL('/', req.url));
+export default clerkMiddleware(async (auth, request) => {
+    // Protect all routes except public ones
+    if (!isPublicRoute(request)) {
+        await auth.protect();
     }
 });
 

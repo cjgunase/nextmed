@@ -3,7 +3,7 @@
 import OpenAI from 'openai';
 import { db } from '@/db';
 import { cases, caseStages, stageOptions, users } from '@/db/schema';
-import { verifyAdminToken } from './admin';
+import { requireAdmin } from '@/lib/admin';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 
@@ -44,7 +44,9 @@ const CaseSchema = z.object({
 
 export async function generateCaseAction(domain: string, difficulty: string, prompt: string) {
     // 1. Verify Admin
-    if (!await verifyAdminToken()) {
+    try {
+        await requireAdmin();
+    } catch (e) {
         return { success: false, message: 'Unauthorized' };
     }
 

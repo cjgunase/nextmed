@@ -4,10 +4,8 @@ import { db } from '@/db';
 import { cases, caseStages, stageOptions, DifficultyLevel } from '@/db/schema';
 import { eq, desc, asc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 import { z } from 'zod';
-
-const ADMIN_TOKEN = 'admin-secret-123';
+import { requireAdmin, getCurrentUserId } from '@/lib/admin';
 
 // Schemas
 const createCaseSchema = z.object({
@@ -39,15 +37,9 @@ const createOptionSchema = z.object({
     feedback: z.string().min(1, 'Feedback is required'),
 });
 
-export async function verifyAdminToken() {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token');
-    // Also check environment variable server-side just in case
-    return token?.value === process.env.ADMIN_ACCESS_TOKEN;
-}
 
 export async function getAllCases() {
-    if (!await verifyAdminToken()) throw new Error('Unauthorized');
+    await requireAdmin();
 
     return await db.query.cases.findMany({
         orderBy: [desc(cases.createdAt)],
@@ -63,7 +55,11 @@ export async function getAllCases() {
 }
 
 export async function createCase(data: z.infer<typeof createCaseSchema>) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     const parsed = createCaseSchema.safeParse(data);
     if (!parsed.success) {
@@ -85,7 +81,11 @@ export async function createCase(data: z.infer<typeof createCaseSchema>) {
 }
 
 export async function createStage(data: any) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     const parsed = createStageSchema.safeParse(data);
     if (!parsed.success) {
@@ -109,7 +109,11 @@ export async function createStage(data: any) {
 }
 
 export async function createOption(data: z.infer<typeof createOptionSchema>) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     const parsed = createOptionSchema.safeParse(data);
     if (!parsed.success) {
@@ -127,7 +131,11 @@ export async function createOption(data: z.infer<typeof createOptionSchema>) {
 }
 
 export async function deleteCase(caseId: number) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
     try {
         await db.delete(cases).where(eq(cases.id, caseId));
         revalidatePath('/admin');
@@ -138,7 +146,11 @@ export async function deleteCase(caseId: number) {
 }
 
 export async function togglePublish(caseId: number, isPublished: boolean) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     try {
         // If publishing, validate that case is complete
@@ -212,15 +224,22 @@ export async function togglePublish(caseId: number, isPublished: boolean) {
 // Keep the old generation function just in case, but strictly we don't need it if manual is preferred. 
 // I'll keep it as a fallback tool.
 export async function generatePatient() {
-    if (!await verifyAdminToken()) {
-        return { success: false, message: 'Invalid admin token' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
+
+    const userId = await getCurrentUserId();
+    if (!userId) {
+        return { success: false, message: 'Not authenticated' };
     }
 
     try {
         // Hardcoded new case data (simulating AI generation)
         // Scenario: Acute Hypoglycemia
         const newCase = await db.insert(cases).values({
-            userId: 'user_2admin456', // Admin user
+            userId, // Current admin user from Clerk
             title: 'Acute Confusion in Type 1 Diabetic (Generated)',
             description: 'A 24-year-old male with Type 1 Diabetes is found confused and sweating profusely by his roommate.',
             clinicalDomain: 'Endocrinology',
@@ -322,7 +341,11 @@ const updateCaseSchema = z.object({
 });
 
 export async function updateCase(data: z.infer<typeof updateCaseSchema>) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     const parsed = updateCaseSchema.safeParse(data);
     if (!parsed.success) {
@@ -369,7 +392,11 @@ const updateStageSchema = z.object({
 });
 
 export async function updateStage(data: z.infer<typeof updateStageSchema>) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     const parsed = updateStageSchema.safeParse(data);
     if (!parsed.success) {
@@ -402,7 +429,11 @@ const updateOptionSchema = z.object({
 });
 
 export async function updateOption(data: z.infer<typeof updateOptionSchema>) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
 
     const parsed = updateOptionSchema.safeParse(data);
     if (!parsed.success) {
@@ -428,7 +459,11 @@ export async function updateOption(data: z.infer<typeof updateOptionSchema>) {
 }
 
 export async function deleteStage(stageId: number) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
     try {
         await db.delete(caseStages).where(eq(caseStages.id, stageId));
         revalidatePath('/admin');
@@ -439,7 +474,11 @@ export async function deleteStage(stageId: number) {
 }
 
 export async function deleteOption(optionId: number) {
-    if (!await verifyAdminToken()) return { success: false, message: 'Unauthorized' };
+    try {
+        await requireAdmin();
+    } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
     try {
         await db.delete(stageOptions).where(eq(stageOptions.id, optionId));
         revalidatePath('/admin');
