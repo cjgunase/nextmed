@@ -57,6 +57,13 @@ type Case = {
     qualityScore?: number;
     rigourScore?: number;
     isPublished: boolean;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+    user?: {
+        email: string;
+        firstName?: string | null;
+        lastName?: string | null;
+    } | null;
     stages: Stage[];
 };
 
@@ -472,6 +479,14 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                                         </span>
                                     </h3>
                                     <p className="text-sm text-muted-foreground">{c.description}</p>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+                                        <span className="flex items-center gap-1">
+                                            <span className="font-medium">Created by:</span> {c.user?.firstName ? `${c.user.firstName} ${c.user.lastName || ''}` : (c.user?.email || 'Unknown')}
+                                        </span>
+                                        <span>•</span>
+                                        <span>Created: {new Date(c.createdAt).toLocaleDateString()}</span>
+                                        <span>Updated: {new Date(c.updatedAt).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">

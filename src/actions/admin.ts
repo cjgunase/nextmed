@@ -49,7 +49,8 @@ export async function getAllCases() {
                 with: {
                     options: true
                 }
-            }
+            },
+            user: true
         }
     });
 }
