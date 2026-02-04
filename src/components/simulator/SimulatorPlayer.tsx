@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CaseWithStagesAndOptions } from "@/types/simulator-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { RotateCcw, Trophy, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
+import { recordAttempt } from "@/actions/student";
 
 interface SimulatorPlayerProps {
     medicalCase: CaseWithStagesAndOptions;
@@ -25,6 +26,7 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
     const [showingFeedback, setShowingFeedback] = useState(false);
     const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
     const [isComplete, setIsComplete] = useState(false);
+    const [attemptSaved, setAttemptSaved] = useState(false);
     const { width, height } = useWindowSize();
 
     const currentStage = medicalCase.stages[currentStageIndex];
@@ -55,7 +57,16 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
         setShowingFeedback(false);
         setSelectedOptionId(null);
         setIsComplete(false);
+        setAttemptSaved(false);
     };
+
+    useEffect(() => {
+        if (!isComplete || attemptSaved) return;
+        setAttemptSaved(true);
+        recordAttempt(medicalCase.id, score).catch((error) => {
+            console.error("Failed to save attempt:", error);
+        });
+    }, [attemptSaved, isComplete, medicalCase.id, score]);
 
     if (isComplete) {
         return (

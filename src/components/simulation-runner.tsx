@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { ClinicalData } from '@/db/schema';
 import { recordAttempt } from '@/actions/student';
+import Link from 'next/link';
 
 // Define types based on what we expect from getSimulation
 // We define them here or import them if we had a shared type definition for the Action return.
@@ -43,6 +44,7 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
     const [selectedOption, setSelectedOption] = useState<Option | null>(null);
     const [isGameFinished, setIsGameFinished] = useState(false);
     const [attemptSaved, setAttemptSaved] = useState(false);
+    const [nextReviewDate, setNextReviewDate] = useState<Date | null>(null);
 
     // Derived state
     const currentStage = simulation.stages[currentStageIndex];
@@ -69,7 +71,11 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
         if (isGameFinished && !attemptSaved) {
             setAttemptSaved(true);
             recordAttempt(simulation.id, score).then((result) => {
-                if (!result.success) {
+                if (result.success) {
+                    if (result.nextReviewDate) {
+                        setNextReviewDate(new Date(result.nextReviewDate));
+                    }
+                } else {
                     console.error('Failed to save attempt:', result.message);
                 }
             });
@@ -88,16 +94,35 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
                             You have completed the scenario: <br />
                             <span className="font-semibold text-gray-900">{simulation.title}</span>
                         </p>
-                        <div className="py-6">
+                        <div className="py-6 flex flex-col items-center gap-6">
                             <div className="inline-flex flex-col items-center justify-center p-6 bg-blue-50 rounded-full w-32 h-32">
                                 <span className="text-sm text-blue-600 uppercase font-bold tracking-wider">Score</span>
                                 <span className="text-4xl font-extrabold text-blue-700">{score}</span>
                             </div>
+
+                            {nextReviewDate && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-sm w-full animate-in fade-in zoom-in duration-500">
+                                    <h3 className="font-semibold text-yellow-800 mb-1 flex items-center justify-center gap-2">
+                                        <span className="text-xl">📅</span> Next Review
+                                    </h3>
+                                    <p className="text-yellow-700">
+                                        Scheduled for: <span className="font-bold">{nextReviewDate.toLocaleDateString()}</span>
+                                    </p>
+                                    <p className="text-xs text-yellow-600 mt-1">
+                                        (Spaced Repetition System optimized)
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
-                        <Button onClick={() => window.location.reload()} variant="outline">
-                            Restart Simulation
-                        </Button>
+                        <div className="flex justify-center gap-4">
+                            <Link href="/cases">
+                                <Button variant="outline">Back to Cases</Button>
+                            </Link>
+                            <Link href="/review">
+                                <Button variant="secondary">Review Queue</Button>
+                            </Link>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

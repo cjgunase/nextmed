@@ -27,6 +27,9 @@ export type DifficultyLevel = typeof difficultyLevels[number];
 export const users = pgTable('users', {
     id: text('id').primaryKey(), // Clerk User ID
     email: text('email').notNull(),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    imageUrl: text('image_url'),
     role: text('role', { enum: userRoles }).default('student').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -138,6 +141,79 @@ export const userStats = pgTable('user_stats', {
 });
 
 // ============================================================================
+// TABLE: category_stats (Performance by Clinical Domain)
+// ============================================================================
+
+export const categoryStats = pgTable(
+    'category_stats',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        clinicalDomain: text('clinical_domain').notNull(),
+        totalAttempts: integer('total_attempts').notNull().default(0),
+        totalScore: integer('total_score').notNull().default(0),
+        averageScore: integer('average_score').notNull().default(0),
+        lastAttemptAt: timestamp('last_attempt_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        pk: index('category_stats_pk').on(table.userId, table.clinicalDomain),
+        userIdIdx: index('category_stats_user_id_idx').on(table.userId),
+    })
+);
+
+// ============================================================================
+// TABLE: difficulty_stats (Performance by Difficulty Level)
+// ============================================================================
+
+export const difficultyStats = pgTable(
+    'difficulty_stats',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        difficultyLevel: text('difficulty_level', { enum: difficultyLevels }).notNull(),
+        totalAttempts: integer('total_attempts').notNull().default(0),
+        totalScore: integer('total_score').notNull().default(0),
+        averageScore: integer('average_score').notNull().default(0),
+        lastAttemptAt: timestamp('last_attempt_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        pk: index('difficulty_stats_pk').on(table.userId, table.difficultyLevel),
+        userIdIdx: index('difficulty_stats_user_id_idx').on(table.userId),
+    })
+);
+
+// ============================================================================
+// TABLE: spaced_repetition_cards (Card Review Scheduling)
+// ============================================================================
+
+export const spacedRepetitionCards = pgTable(
+    'spaced_repetition_cards',
+    {
+        id: serial('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        caseId: integer('case_id')
+            .notNull()
+            .references(() => cases.id, { onDelete: 'cascade' }),
+        repetitions: integer('repetitions').notNull().default(0), // Number of successful reviews
+        easeFactor: integer('ease_factor').notNull().default(2500), // Stored as 2.5 * 1000 for precision
+        interval: integer('interval').notNull().default(1), // Days until next review
+        nextReviewDate: timestamp('next_review_date').notNull().defaultNow(),
+        lastReviewedAt: timestamp('last_reviewed_at'),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        userCaseIdx: index('sr_cards_user_case_idx').on(table.userId, table.caseId),
+        nextReviewIdx: index('sr_cards_next_review_idx').on(table.nextReviewDate),
+        userIdIdx: index('sr_cards_user_id_idx').on(table.userId),
+    })
+);
+
+
+// ============================================================================
 // RELATIONS (For Nested Queries)
 // ============================================================================
 
@@ -148,6 +224,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
         fields: [users.id],
         references: [userStats.userId],
     }),
+    categoryStats: many(categoryStats),
+    difficultyStats: many(difficultyStats),
+    spacedRepetitionCards: many(spacedRepetitionCards),
 }));
 
 export const casesRelations = relations(cases, ({ one, many }) => ({
@@ -157,6 +236,7 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
     }),
     stages: many(caseStages),
     attempts: many(studentAttempts), // Track who attempted this case
+    spacedRepetitionCards: many(spacedRepetitionCards),
 }));
 
 export const caseStagesRelations = relations(caseStages, ({ one, many }) => ({
@@ -192,6 +272,31 @@ export const userStatsRelations = relations(userStats, ({ one }) => ({
     }),
 }));
 
+export const categoryStatsRelations = relations(categoryStats, ({ one }) => ({
+    user: one(users, {
+        fields: [categoryStats.userId],
+        references: [users.id],
+    }),
+}));
+
+export const difficultyStatsRelations = relations(difficultyStats, ({ one }) => ({
+    user: one(users, {
+        fields: [difficultyStats.userId],
+        references: [users.id],
+    }),
+}));
+
+export const spacedRepetitionCardsRelations = relations(spacedRepetitionCards, ({ one }) => ({
+    user: one(users, {
+        fields: [spacedRepetitionCards.userId],
+        references: [users.id],
+    }),
+    case: one(cases, {
+        fields: [spacedRepetitionCards.caseId],
+        references: [cases.id],
+    }),
+}));
+
 // ============================================================================
 // TYPE EXPORTS (For use in application code)
 // ============================================================================
@@ -213,6 +318,16 @@ export type NewStudentAttempt = typeof studentAttempts.$inferInsert;
 
 export type UserStats = typeof userStats.$inferSelect;
 export type NewUserStats = typeof userStats.$inferInsert;
+
+export type CategoryStats = typeof categoryStats.$inferSelect;
+export type NewCategoryStats = typeof categoryStats.$inferInsert;
+
+export type DifficultyStats = typeof difficultyStats.$inferSelect;
+export type NewDifficultyStats = typeof difficultyStats.$inferInsert;
+
+export type SpacedRepetitionCard = typeof spacedRepetitionCards.$inferSelect;
+export type NewSpacedRepetitionCard = typeof spacedRepetitionCards.$inferInsert;
+
 
 // ============================================================================
 // CLINICAL DATA TYPE (For the JSONB field)

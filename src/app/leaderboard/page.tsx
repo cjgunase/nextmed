@@ -1,14 +1,19 @@
+
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { getLeaderboard, getStudentStats } from '@/actions/student';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 /**
  * Leaderboard Page - Server Component
  */
-export default async function LeaderboardPage() {
+export default async function LeaderboardPage(props: { searchParams: Promise<{ category?: string; difficulty?: string }> }) {
+    const searchParams = await props.searchParams;
+    const { category, difficulty } = searchParams;
+
     // 1. Authenticate user
     const { userId } = await auth();
 
@@ -17,25 +22,72 @@ export default async function LeaderboardPage() {
     }
 
     // 2. Fetch leaderboard and user's own stats
+    // Pass filters to getLeaderboard
     const [leaderboardResult, userStatsResult] = await Promise.all([
-        getLeaderboard(100),
+        getLeaderboard(100, category, difficulty),
         getStudentStats(),
     ]);
 
     const leaderboard = leaderboardResult.success ? leaderboardResult.data : [];
     const userStats = userStatsResult.success ? userStatsResult.data : null;
 
+    // Categories to filter by
+    const categories = ['Cardiology', 'Respiratory', 'Neurology', 'Gastroenterology', 'Musculoskeletal', 'Endocrinology'];
+    const difficultyLevels = ['Foundation', 'Core', 'Advanced'];
+
+    const getTitle = () => {
+        if (category) return `Top Students in ${category}`;
+        if (difficulty) return `Top Students - ${difficulty} Level`;
+        return 'Global Leaderboard';
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold">Leaderboard</h1>
-                <p className="text-muted-foreground mt-2">
-                    Top medical students ranked by total score
-                </p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold">{getTitle()}</h1>
+                    <p className="text-muted-foreground mt-2">
+                        Ranked by performance score
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    <Link href="/performance">
+                        <Button variant="outline">View My Analytics</Button>
+                    </Link>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="mb-6 space-y-4">
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium text-muted-foreground mr-2">Category:</span>
+                    <Link href="/leaderboard">
+                        <Badge variant={!category && !difficulty ? "default" : "outline"} className="cursor-pointer">
+                            All
+                        </Badge>
+                    </Link>
+                    {categories.map(cat => (
+                        <Link key={cat} href={`/leaderboard?category=${cat}`}>
+                            <Badge variant={category === cat ? "default" : "outline"} className="cursor-pointer">
+                                {cat}
+                            </Badge>
+                        </Link>
+                    ))}
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium text-muted-foreground mr-2">Difficulty:</span>
+                    {difficultyLevels.map(level => (
+                        <Link key={level} href={`/leaderboard?difficulty=${level}`}>
+                            <Badge variant={difficulty === level ? "default" : "outline"} className="cursor-pointer">
+                                {level}
+                            </Badge>
+                        </Link>
+                    ))}
+                </div>
             </div>
 
             {/* User's Stats Card */}
-            {userStats && (
+            {userStats && !category && !difficulty && (
                 <Card className="mb-8 border-primary/50 bg-primary/5">
                     <CardHeader>
                         <CardTitle className="text-lg">Your Statistics</CardTitle>
@@ -46,18 +98,18 @@ export default async function LeaderboardPage() {
                                 <div className="text-2xl font-bold text-primary">
                                     #{userStats.rank || '-'}
                                 </div>
-                                <div className="text-sm text-muted-foreground">Rank</div>
+                                <div className="text-sm text-muted-foreground">Global Rank</div>
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{userStats.totalScore}</div>
-                                <div className="text-sm text-muted-foreground">Total Score</div>
+                                <div className="text-sm text-muted-foreground">Total XP</div>
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{userStats.totalAttempts}</div>
                                 <div className="text-sm text-muted-foreground">Cases Completed</div>
                             </div>
                             <div>
-                                <div className="text-2xl font-bold">{userStats.averageScore}</div>
+                                <div className="text-2xl font-bold">{userStats.averageScore}%</div>
                                 <div className="text-sm text-muted-foreground">Average Score</div>
                             </div>
                         </div>
@@ -67,17 +119,14 @@ export default async function LeaderboardPage() {
 
             {/* Leaderboard Table */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Top Students</CardTitle>
-                </CardHeader>
                 <CardContent className="p-0">
                     {leaderboard.length === 0 ? (
                         <div className="text-center py-12 px-4">
                             <p className="text-muted-foreground mb-4">
-                                No data yet. Be the first to complete a case!
+                                No data found for this filter.
                             </p>
                             <Link href="/cases">
-                                <Button>Browse Cases</Button>
+                                <Button>Start Practice</Button>
                             </Link>
                         </div>
                     ) : (
@@ -85,11 +134,11 @@ export default async function LeaderboardPage() {
                             <table className="w-full">
                                 <thead className="border-b bg-muted/50">
                                     <tr>
-                                        <th className="text-left p-4 font-semibold">Rank</th>
+                                        <th className="text-left p-4 font-semibold w-20">Rank</th>
                                         <th className="text-left p-4 font-semibold">Student</th>
-                                        <th className="text-right p-4 font-semibold">Total Score</th>
+                                        <th className="text-right p-4 font-semibold">Score</th>
                                         <th className="text-right p-4 font-semibold">Cases</th>
-                                        <th className="text-right p-4 font-semibold">Avg Score</th>
+                                        <th className="text-right p-4 font-semibold">Avg</th>
                                         <th className="text-right p-4 font-semibold hidden md:table-cell">
                                             Last Activity
                                         </th>
@@ -99,46 +148,50 @@ export default async function LeaderboardPage() {
                                     {leaderboard.map((entry, index) => (
                                         <tr
                                             key={entry.userId}
-                                            className={`border-b hover:bg-muted/30 transition-colors ${entry.userId === userId ? 'bg-primary/10' : ''
+                                            className={`border-b hover:bg-muted/30 transition-colors ${entry.userId === userId ? 'bg-primary/5' : ''
                                                 }`}
                                         >
                                             <td className="p-4">
                                                 <div className="flex items-center gap-2">
-                                                    {index < 3 && (
+                                                    {entry.rank <= 3 && (
                                                         <span className="text-xl">
-                                                            {index === 0
+                                                            {entry.rank === 1
                                                                 ? '🥇'
-                                                                : index === 1
+                                                                : entry.rank === 2
                                                                     ? '🥈'
                                                                     : '🥉'}
                                                         </span>
                                                     )}
-                                                    <span className="font-semibold">#{entry.rank}</span>
+                                                    <span className="font-semibold text-muted-foreground">#{entry.rank}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span
-                                                        className={
-                                                            entry.userId === userId
-                                                                ? 'font-semibold'
-                                                                : ''
-                                                        }
-                                                    >
-                                                        {entry.email}
-                                                    </span>
-                                                    {entry.userId === userId && (
-                                                        <span className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded">
-                                                            You
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center border border-muted-foreground/20">
+                                                        {entry.user?.imageUrl ? (
+                                                            // eslint-disable-next-line @next/next/no-img-element
+                                                            <img src={entry.user.imageUrl} alt="Avatar" className="h-full w-full object-cover" />
+                                                        ) : (
+                                                            <span className="text-xs font-medium text-muted-foreground">
+                                                                {entry.user?.firstName?.charAt(0) || entry.email.charAt(0).toUpperCase()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-sm ${entry.userId === userId ? 'font-bold' : 'font-medium'}`}>
+                                                            {entry.user?.firstName ? `${entry.user.firstName} ${entry.user.lastName || ''}` : entry.email.split('@')[0]}
+                                                            {entry.userId === userId && " (You)"}
                                                         </span>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-right font-semibold text-lg">
+                                            <td className="p-4 text-right font-mono font-bold text-primary">
                                                 {entry.totalScore}
                                             </td>
                                             <td className="p-4 text-right">{entry.totalAttempts}</td>
-                                            <td className="p-4 text-right">{entry.averageScore}</td>
+                                            <td className="p-4 text-right font-medium">
+                                                {entry.averageScore}%
+                                            </td>
                                             <td className="p-4 text-right text-sm text-muted-foreground hidden md:table-cell">
                                                 {new Date(entry.lastActivityAt).toLocaleDateString()}
                                             </td>
