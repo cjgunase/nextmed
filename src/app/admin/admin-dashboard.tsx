@@ -14,7 +14,7 @@ import {
     deleteStage,
     deleteOption
 } from '@/actions/admin';
-import { generateCaseAction } from '@/actions/ai';
+import { generateCaseAction, generateClinicalDataAction } from '@/actions/ai';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
@@ -163,6 +163,26 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleGenerateClinicalData = async (narrative: string, target: 'new' | 'edit') => {
+        if (!narrative) {
+            alert("Please enter a narrative first.");
+            return;
+        }
+        setLoading(true);
+        const res = await generateClinicalDataAction(narrative);
+        if (res.success) {
+            const jsonString = JSON.stringify(res.data, null, 2);
+            if (target === 'new') {
+                setNewStage(prev => ({ ...prev, clinicalData: jsonString }));
+            } else {
+                setEditStageForm(prev => ({ ...prev, clinicalData: jsonString }));
+            }
+        } else {
+            alert("Failed to generate clinical data: " + res.message);
+        }
+        setLoading(false);
     };
 
     const handleCreateCase = async () => {
@@ -701,7 +721,19 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <Label>Clinical Data (JSON)</Label>
+                                                                <div className="flex justify-between items-center">
+                                                                    <Label>Clinical Data (JSON)</Label>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                                                        onClick={() => handleGenerateClinicalData(editStageForm.narrative || '', 'edit')}
+                                                                        disabled={loading || !editStageForm.narrative}
+                                                                        type="button"
+                                                                    >
+                                                                        <Sparkles className="h-3 w-3 mr-1" /> Suggest from Narrative
+                                                                    </Button>
+                                                                </div>
                                                                 <Textarea
                                                                     value={typeof editStageForm.clinicalData === 'string' ? editStageForm.clinicalData : JSON.stringify(editStageForm.clinicalData, null, 2)}
                                                                     onChange={e => setEditStageForm({ ...editStageForm, clinicalData: e.target.value })}
@@ -884,7 +916,19 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>Clinical Data (JSON)</Label>
+                                                <div className="flex justify-between items-center">
+                                                    <Label>Clinical Data (JSON)</Label>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                                        onClick={() => handleGenerateClinicalData(newStage.narrative, 'new')}
+                                                        disabled={loading || !newStage.narrative}
+                                                        type="button"
+                                                    >
+                                                        <Sparkles className="h-3 w-3 mr-1" /> Suggest from Narrative
+                                                    </Button>
+                                                </div>
                                                 <Textarea
                                                     className="min-h-[120px] font-mono text-xs"
                                                     value={newStage.clinicalData}

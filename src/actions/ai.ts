@@ -202,6 +202,8 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
         revalidatePath('/admin');
         return { success: true, message: 'Case generated successfully', caseId };
 
+        // ... existing code ...
+
     } catch (error: any) {
         console.error("AI Generation Error:", error);
         console.error("Error details:", {
@@ -219,3 +221,46 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
         };
     }
 }
+
+export async function generateClinicalDataAction(narrative: string) {
+    try {
+        await requireAdmin();
+        if (!process.env.OPENAI_API_KEY) {
+            return { success: false, message: 'OpenAI API Key is missing' };
+        }
+
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a medical expert. specific clinical data (vitals) based on the provided clinical narrative. Return ONLY a JSON object."
+                },
+                {
+                    role: "user",
+                    content: `Generate realistic clinical data (vitals) for a patient with the following situation: "${narrative}".
+                    
+                    Return a JSON object with these fields (use realistic values):
+                    - BP (string, e.g. "120/80")
+                    - HR (number)
+                    - RR (number)
+                    - Temp (number, celsius)
+                    - SpO2 (number)
+                    - notes (array of strings, optional observations)
+                    `
+                }
+            ],
+            response_format: { type: "json_object" }
+        });
+
+        const content = completion.choices[0].message.content;
+        if (!content) throw new Error("No content generated");
+
+        const data = JSON.parse(content);
+        return { success: true, data };
+    } catch (error: any) {
+        console.error("Clinical Data Generation Error:", error);
+        return { success: false, message: error.message };
+    }
+}
+
