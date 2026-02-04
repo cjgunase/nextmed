@@ -39,6 +39,11 @@ export default async function PerformancePage() {
     const difficultyStats = difficultyStatsResult.success ? difficultyStatsResult.data : [];
     const userStats = userStatsResult.success ? userStatsResult.data : null;
     const percentile = percentileResult.success ? percentileResult.data : { percentile: 0, rank: null, totalUsers: 0 };
+    const safePercentile = {
+        percentile: percentile?.percentile ?? 0,
+        rank: percentile?.rank ?? null,
+        totalUsers: percentile?.totalUsers ?? 0,
+    };
     const recentAttempts = recentAttemptsResult.success ? recentAttemptsResult.data : [];
 
     // Identify weak areas (categories with score < 70)
@@ -68,9 +73,9 @@ export default async function PerformancePage() {
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Global Rank</p>
-                                <h3 className="text-2xl font-bold mt-1">Top {100 - percentile.percentile}%</h3>
+                                <h3 className="text-2xl font-bold mt-1">Top {100 - safePercentile.percentile}%</h3>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Rank #{percentile.rank} of {percentile.totalUsers} students
+                                    Rank #{safePercentile.rank} of {safePercentile.totalUsers} students
                                 </p>
                             </div>
                             <div className="p-2 bg-blue-50 rounded-full">
