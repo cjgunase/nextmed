@@ -25,6 +25,7 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
     const [score, setScore] = useState(0);
     const [showingFeedback, setShowingFeedback] = useState(false);
     const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
+    const [selectedOptionIds, setSelectedOptionIds] = useState<Record<number, number>>({});
     const [isComplete, setIsComplete] = useState(false);
     const [attemptSaved, setAttemptSaved] = useState(false);
     const { width, height } = useWindowSize();
@@ -37,6 +38,10 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
 
         setScore(prev => prev + option.scoreWeight);
         setSelectedOptionId(optionId);
+        setSelectedOptionIds((prev) => ({
+            ...prev,
+            [currentStage.id]: optionId,
+        }));
         setShowingFeedback(true);
     };
 
@@ -58,15 +63,16 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
         setSelectedOptionId(null);
         setIsComplete(false);
         setAttemptSaved(false);
+        setSelectedOptionIds({});
     };
 
     useEffect(() => {
         if (!isComplete || attemptSaved) return;
         setAttemptSaved(true);
-        recordAttempt(medicalCase.id, score).catch((error) => {
+        recordAttempt(medicalCase.id, Object.values(selectedOptionIds)).catch((error) => {
             console.error("Failed to save attempt:", error);
         });
-    }, [attemptSaved, isComplete, medicalCase.id, score]);
+    }, [attemptSaved, isComplete, medicalCase.id, selectedOptionIds]);
 
     if (isComplete) {
         return (

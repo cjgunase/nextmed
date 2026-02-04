@@ -20,19 +20,11 @@ export async function isAdmin(): Promise<boolean> {
     try {
         const user = await currentUser();
         if (!user) {
-            console.log('[isAdmin] No user found');
             return false;
         }
 
         const adminEmails = getAdminEmails();
         const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
-
-        console.log('[isAdmin] Debug info:', {
-            userEmail,
-            adminEmails,
-            envValue: process.env.ADMIN_EMAILS,
-            isMatch: adminEmails.includes(userEmail || '')
-        });
 
         if (!userEmail) return false;
 

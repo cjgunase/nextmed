@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { isAdmin as isAllowlistAdmin } from '@/lib/admin';
 
 /**
  * Get the current user's role from the database
@@ -33,8 +34,7 @@ export async function getUserRole(userId?: string): Promise<'student' | 'admin' 
  * Check if the current user is an admin
  */
 export async function isAdmin(): Promise<boolean> {
-    const role = await getUserRole();
-    return role === 'admin';
+    return isAllowlistAdmin();
 }
 
 /**

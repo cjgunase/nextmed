@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ClinicalData } from '@/db/schema';
 import { recordAttempt } from '@/actions/student';
 import Link from 'next/link';
 
@@ -24,7 +23,7 @@ interface Stage {
     id: number;
     stageOrder: number;
     narrative: string;
-    clinicalData: ClinicalData | unknown;
+    clinicalData: Record<string, unknown> | unknown;
     options: Option[];
 }
 
@@ -45,6 +44,7 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
     const [isGameFinished, setIsGameFinished] = useState(false);
     const [attemptSaved, setAttemptSaved] = useState(false);
     const [nextReviewDate, setNextReviewDate] = useState<Date | null>(null);
+    const [selectedOptionIds, setSelectedOptionIds] = useState<Record<number, number>>({});
 
     // Derived state
     const currentStage = simulation.stages[currentStageIndex];
@@ -54,6 +54,10 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
 
         setSelectedOption(option);
         setScore((prev) => prev + option.scoreWeight);
+        setSelectedOptionIds((prev) => ({
+            ...prev,
+            [currentStage.id]: option.id,
+        }));
     };
 
     const handleNextStage = () => {
@@ -70,7 +74,7 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
     useEffect(() => {
         if (isGameFinished && !attemptSaved) {
             setAttemptSaved(true);
-            recordAttempt(simulation.id, score).then((result) => {
+            recordAttempt(simulation.id, Object.values(selectedOptionIds)).then((result) => {
                 if (result.success) {
                     if (result.nextReviewDate) {
                         setNextReviewDate(new Date(result.nextReviewDate));
@@ -80,7 +84,7 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
                 }
             });
         }
-    }, [isGameFinished, attemptSaved, simulation.id, score]);
+    }, [isGameFinished, attemptSaved, simulation.id, selectedOptionIds]);
 
     if (isGameFinished) {
         return (

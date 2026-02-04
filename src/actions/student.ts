@@ -7,18 +7,20 @@ import {
     userStats,
     users,
     cases,
+    caseStages,
+    stageOptions,
     categoryStats,
     difficultyStats,
     spacedRepetitionCards
 } from '@/db/schema';
-import { eq, desc, sql, and, lte } from 'drizzle-orm';
+import { eq, desc, sql, and, lte, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 /**
  * Record a student's completion of a case simulation
  * Also updates category stats, difficulty stats, and spaced repetition scheduling
  */
-export async function recordAttempt(caseId: number, score: number) {
+export async function recordAttempt(caseId: number, selectedOptionIds: number[]) {
     const { userId } = await auth();
 
     if (!userId) {
@@ -26,6 +28,10 @@ export async function recordAttempt(caseId: number, score: number) {
     }
 
     try {
+        if (!selectedOptionIds || selectedOptionIds.length === 0) {
+            return { success: false, message: 'No options selected' };
+        }
+
         const user = await currentUser();
         if (user?.id) {
             const adminEmailsString = process.env.ADMIN_EMAILS || '';
@@ -58,6 +64,24 @@ export async function recordAttempt(caseId: number, score: number) {
         if (!caseData) {
             return { success: false, message: 'Case not found' };
         }
+
+        // Calculate score server-side from selected option IDs for this case
+        const optionRows = await db
+            .select({ scoreWeight: stageOptions.scoreWeight, optionId: stageOptions.id })
+            .from(stageOptions)
+            .innerJoin(caseStages, eq(stageOptions.stageId, caseStages.id))
+            .where(
+                and(
+                    eq(caseStages.caseId, caseId),
+                    inArray(stageOptions.id, selectedOptionIds)
+                )
+            );
+
+        if (optionRows.length !== selectedOptionIds.length) {
+            return { success: false, message: 'Invalid options for this case' };
+        }
+
+        const score = optionRows.reduce((sum, row) => sum + (row.scoreWeight || 0), 0);
 
         // Insert the attempt
         await db.insert(studentAttempts).values({
