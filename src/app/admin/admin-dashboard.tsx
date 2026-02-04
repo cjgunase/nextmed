@@ -125,8 +125,8 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
     const [newCase, setNewCase] = useState({
         title: '',
         description: '',
-        clinicalDomain: 'General Practice',
-        difficultyLevel: 'Foundation',
+        clinicalDomain: '',
+        difficultyLevel: '',
         userId: userId // Use actual Clerk user ID
     });
 
@@ -162,7 +162,7 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
         setLoading(true);
         const res = await createCase({ ...newCase, difficultyLevel: newCase.difficultyLevel as any });
         if (res.success) {
-            setNewCase({ title: '', description: '', clinicalDomain: 'General Practice', difficultyLevel: 'Foundation', userId });
+            setNewCase({ title: '', description: '', clinicalDomain: '', difficultyLevel: '', userId });
             await handleRefresh();
             setExpandedCaseId(res.caseId!);
         } else {
@@ -341,36 +341,49 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                 </div>
             </header>
 
-            {/* AI GENERATION CARD */}
+            {/* CREATE NEW CASE CARD */}
             <Card className="border-indigo-500/50 bg-indigo-50/50 dark:bg-indigo-950/20">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
-                        <Sparkles className="h-5 w-5" /> AI Case Generation
+                        <Sparkles className="h-5 w-5" /> Create New Case
                     </CardTitle>
                     <CardDescription>
-                        Generate unique patient scenarios using AI. These will be saved as "Drafts" for your review.
+                        Describe the scenario and let AI build the case structure, or create a blank case manually.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="grid gap-4">
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Scenario Description</Label>
+                        <Textarea
+                            placeholder="Describe the clinical scenario. E.g. 'A 25 year old female with acute asthma exacerbation not responding to salbutamol. Include blood gas analysis.'"
+                            value={newCase.description}
+                            onChange={e => setNewCase({ ...newCase, description: e.target.value })}
+                            className="min-h-[100px] bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground">The AI will use this description to generate the Title, Narrative, Clinical Data, and Options.</p>
+                    </div>
+
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Clinical Domain</Label>
                             <Input
-                                placeholder="e.g. Respiratory, Neurology"
+                                placeholder="(Optional) e.g. Respiratory, or leave blank for Auto-detect"
                                 value={newCase.clinicalDomain}
                                 onChange={e => setNewCase({ ...newCase, clinicalDomain: e.target.value })}
+                                className="bg-background"
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Difficulty</Label>
                             <Select
-                                value={newCase.difficultyLevel}
+                                value={newCase.difficultyLevel || "auto"} // Default to auto for display
                                 onValueChange={(val) => setNewCase({ ...newCase, difficultyLevel: val })}
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Difficulty" />
+                                <SelectTrigger className="bg-background">
+                                    <SelectValue placeholder="Auto-detect (AI)" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="auto">✨ Auto-detect (AI)</SelectItem>
                                     <SelectItem value="Foundation">Foundation</SelectItem>
                                     <SelectItem value="Core">Core</SelectItem>
                                     <SelectItem value="Advanced">Advanced</SelectItem>
@@ -378,93 +391,64 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                             </Select>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label>Scenario Prompt</Label>
-                        <Textarea
-                            placeholder="Describe the scenario you want to generate. Be specific. E.g. 'A 25 year old female with acute asthma exacerbation who is not responding to salbutamol.'"
-                            value={newCase.description}
-                            onChange={e => setNewCase({ ...newCase, description: e.target.value })}
-                            className="min-h-[80px]"
-                        />
-                        <p className="text-xs text-muted-foreground">Tip: Include patient age, key symptoms, and intended learning outcome.</p>
+
+                    <div className="pt-2">
+                        <Label className="text-xs text-muted-foreground mb-2 block">Optional Overrides (for manual creation)</Label>
+                        <div className="space-y-2">
+                            <Input
+                                placeholder="Case Title (Optional for AI, Required for Manual)"
+                                value={newCase.title}
+                                onChange={e => setNewCase({ ...newCase, title: e.target.value })}
+                                className="bg-background"
+                            />
+                        </div>
                     </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex gap-3 justify-between">
                     <Button
                         onClick={async () => {
                             setLoading(true);
-                            const res = await generateCaseAction(newCase.clinicalDomain, newCase.difficultyLevel, newCase.description);
+                            // If title is provided, append it to prompt for better context
+                            const prompt = newCase.title
+                                ? `Title: ${newCase.title}. ${newCase.description}`
+                                : newCase.description;
+
+                            // Pass 'auto' or empty string to backend, it will handle it (or we should clean it here)
+                            const domain = newCase.clinicalDomain || '';
+                            const difficulty = newCase.difficultyLevel === 'auto' ? '' : newCase.difficultyLevel;
+
+                            const res = await generateCaseAction(domain, difficulty, prompt);
                             if (res.success && res.caseId) {
-                                alert(`Success! Case generated with ID: ${res.caseId}`);
                                 await handleRefresh();
                                 setExpandedCaseId(res.caseId);
-                                setNewCase({ ...newCase, title: '', description: '' });
+                                setNewCase({ ...newCase, title: '', description: '', clinicalDomain: '', difficultyLevel: '' });
+                                // Scroll to the new case
+                                setTimeout(() => {
+                                    const element = document.getElementById(`case-${res.caseId}`);
+                                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }, 500);
                             } else {
-                                alert('Create Error: ' + res.message);
+                                alert('Generation Error: ' + res.message);
                             }
                             setLoading(false);
                         }}
-                        disabled={loading || !newCase.clinicalDomain || !newCase.description}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        disabled={loading || !newCase.description}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white flex-1"
                     >
                         {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bot className="h-4 w-4 mr-2" />}
                         Generate with AI
                     </Button>
-                </CardFooter>
-            </Card>
 
-            <Separator className="my-8" />
+                    <div className="w-px bg-indigo-200 dark:bg-indigo-800 mx-2"></div>
 
-            {/* CREATE NEW CASE */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Layout className="h-5 w-5" /> Create New Case</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label>Title</Label>
-                        <Input
-                            placeholder="e.g. Acute Chest Pain"
-                            value={newCase.title}
-                            onChange={e => setNewCase({ ...newCase, title: e.target.value })}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Domain</Label>
-                        <Input
-                            placeholder="e.g. Cardiology"
-                            value={newCase.clinicalDomain}
-                            onChange={e => setNewCase({ ...newCase, clinicalDomain: e.target.value })}
-                        />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                        <Label>Description</Label>
-                        <Textarea
-                            placeholder="Brief summary of the case..."
-                            value={newCase.description}
-                            onChange={e => setNewCase({ ...newCase, description: e.target.value })}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Difficulty</Label>
-                        <Select
-                            value={newCase.difficultyLevel}
-                            onValueChange={(val) => setNewCase({ ...newCase, difficultyLevel: val })}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Difficulty" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Foundation">Foundation</SelectItem>
-                                <SelectItem value="Core">Core</SelectItem>
-                                <SelectItem value="Advanced">Advanced</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-                <CardFooter>
-                    <Button onClick={handleCreateCase} disabled={loading || !newCase.title}>
-                        {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Create Case
+                    <Button
+                        variant="outline"
+                        onClick={handleCreateCase}
+                        disabled={loading || !newCase.title || !newCase.clinicalDomain || !newCase.difficultyLevel || newCase.difficultyLevel === 'auto'}
+                        className="flex-1"
+                    >
+                        {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Create Blank Case
                     </Button>
                 </CardFooter>
             </Card>
@@ -472,7 +456,7 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
             <div className="space-y-4">
                 <h2 className="text-xl font-semibold">Existing Cases ({cases.length})</h2>
                 {cases.map((c) => (
-                    <Card key={c.id} className="overflow-hidden border-l-4 border-l-primary/50">
+                    <Card key={c.id} id={`case-${c.id}`} className="overflow-hidden border-l-4 border-l-primary/50">
                         <div
                             className="p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
                             onClick={() => setExpandedCaseId(expandedCaseId === c.id ? null : c.id)}

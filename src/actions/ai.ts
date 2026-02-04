@@ -73,8 +73,10 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
                 },
                 {
                     role: "user",
-                    content: `Create a '${difficulty}' difficulty case in the domain of '${domain}'.
-                    Scenario details: ${prompt}.
+                    content: `Generate a clinical case based on the following scenario: "${prompt}".
+                    ${domain ? `Domain: '${domain}'.` : `Infer the most appropriate Clinical Domain based on the scenario.`}
+                    ${difficulty ? `Difficulty Level: '${difficulty}'.` : `Infer the appropriate Difficulty Level (Foundation, Core, or Advanced) based on the clinical complexity.`}
+                    
                     Include 2-3 stages. Each stage must have options (some correct, some incorrect/dangerous).
                     Ensure clinical data (vitals) are realistic.`
                 }
