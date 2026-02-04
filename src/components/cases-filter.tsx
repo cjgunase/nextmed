@@ -246,9 +246,7 @@ export function CasesFilter({ cases }: CasesFilterProps) {
 
                                                         <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto pt-3 border-t">
                                                             <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md font-medium">
-                                                                {caseItem.source === 'ai'
-                                                                    ? '🤖 AI Generated'
-                                                                    : '👤 Human Created'}
+                                                                Rigour: {caseItem.rigourScore ?? 0}/100
                                                             </span>
                                                             <span className="font-semibold text-primary">
                                                                 {caseItem.stages.length}{' '}

@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import { db } from '@/db';
 import { cases, caseStages, stageOptions, users } from '@/db/schema';
 import { requireAdmin } from '@/lib/admin';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 
@@ -47,6 +48,11 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
     try {
         await requireAdmin();
     } catch (e) {
+        return { success: false, message: 'Unauthorized' };
+    }
+
+    const { userId } = await auth();
+    if (!userId) {
         return { success: false, message: 'Unauthorized' };
     }
 
@@ -139,26 +145,25 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
         // validate with Zod
         const validatedCase = CaseSchema.parse(aiData);
 
-        // 3. Ensure AI system user exists in database
-        const AI_USER_ID = 'system_ai_generator';
-        const AI_USER_EMAIL = 'ai@nextmed.system';
-
-        // Check if AI user exists, if not create it
-        const existingAiUser = await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.id, AI_USER_ID)
-        });
-
-        if (!existingAiUser) {
-            await db.insert(users).values({
-                id: AI_USER_ID,
-                email: AI_USER_EMAIL,
-                role: 'admin',
-            }).onConflictDoNothing();
+        // 3. Ensure the current admin user exists in database
+        const user = await currentUser();
+        if (user?.id) {
+            await db
+                .insert(users)
+                .values({
+                    id: user.id,
+                    email: user.emailAddresses[0]?.emailAddress || `${user.id}@unknown.local`,
+                    firstName: user.firstName || null,
+                    lastName: user.lastName || null,
+                    imageUrl: user.imageUrl || null,
+                    role: 'admin',
+                })
+                .onConflictDoNothing();
         }
 
         // 4. Insert into DB (Transaction would be better, but keeping it simple for now)
         const newCase = await db.insert(cases).values({
-            userId: AI_USER_ID,
+            userId: userId,
             title: validatedCase.title,
             description: validatedCase.description,
             clinicalDomain: validatedCase.clinicalDomain,
