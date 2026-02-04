@@ -78,7 +78,7 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
                     ${difficulty ? `Difficulty Level: '${difficulty}'.` : `Infer the appropriate Difficulty Level (Foundation, Core, or Advanced) based on the clinical complexity.`}
                     
                     Include 2-3 stages. Each stage must have options (some correct, some incorrect/dangerous).
-                    Ensure clinical data (vitals) are realistic.`
+                    If the user description includes clinical data (vitals), use those if not generate clinical data (vitals) are realistic.`
                 }
             ],
             tools: [
