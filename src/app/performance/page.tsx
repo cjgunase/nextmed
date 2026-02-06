@@ -217,11 +217,11 @@ export default async function PerformancePage(props: { searchParams: Promise<{ m
                         {recentAttempts.length > 0 ? (
                             <div className="space-y-4">
                                 {recentAttempts.map((attempt) => (
-                                    <div key={attempt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div key={attempt.id} className="flex items-center justify-between rounded-lg bg-muted/40 p-3 transition-colors hover:bg-muted/70">
                                         <div>
-                                            <p className="font-medium text-gray-900">{attempt.case.title}</p>
+                                            <p className="font-medium text-foreground">{attempt.case.title}</p>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
                                                     {attempt.case.clinicalDomain}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground">
