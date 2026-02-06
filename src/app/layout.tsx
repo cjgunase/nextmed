@@ -18,7 +18,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NextMed | Premium Healthcare Platform",
+  title: "NextMed.ai Medical Learning Platform",
   description: "Advanced healthcare solutions built with Next.js",
 };
 
