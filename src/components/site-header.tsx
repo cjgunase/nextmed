@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -43,8 +44,15 @@ export function SiteHeader({ transparentAtTopOnHome = true }: SiteHeaderProps) {
       )}
     >
       <div className="container mx-auto flex items-center justify-between px-4 py-4">
-        <Link href="/" className="text-xl font-bold text-primary">
-          NextMed.Ai
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/images/logo.png"
+            alt="NextMed.Ai Logo"
+            width={32}
+            height={32}
+            className="rounded-md object-contain"
+          />
+          <span className="text-xl font-bold text-primary">NextMed.Ai</span>
         </Link>
 
         <div className="flex items-center gap-4">

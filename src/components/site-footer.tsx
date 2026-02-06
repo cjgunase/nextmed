@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const productLinks = [
   { label: "Clinical Cases", href: "/cases" },
@@ -26,8 +27,15 @@ export function SiteFooter() {
       <div className="mx-auto max-w-7xl px-6 py-12 md:px-10">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-1">
-            <Link href="/" className="text-lg font-semibold text-foreground">
-              NextMed.Ai
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/images/logo.png"
+                alt="NextMed.Ai Logo"
+                width={28}
+                height={28}
+                className="rounded-md object-contain"
+              />
+              <span className="text-lg font-semibold text-foreground">NextMed.Ai</span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               NextMed helps medical students build clinical reasoning through structured case practice, exam-focused
