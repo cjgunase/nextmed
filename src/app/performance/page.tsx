@@ -83,7 +83,7 @@ export default async function PerformancePage(props: { searchParams: Promise<{ m
 
             {/* Key Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-white border-l-4 border-l-blue-500 shadow-sm">
+                <Card className="border-l-4 border-l-blue-500 shadow-sm">
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div>
@@ -93,14 +93,14 @@ export default async function PerformancePage(props: { searchParams: Promise<{ m
                                     Rank #{safePercentile.rank} of {safePercentile.totalUsers} students
                                 </p>
                             </div>
-                            <div className="p-2 bg-blue-50 rounded-full">
-                                <Trophy className="h-5 w-5 text-blue-600" />
+                            <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-950/50">
+                                <Trophy className="h-5 w-5 text-blue-600 dark:text-blue-300" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-green-500 shadow-sm">
+                <Card className="border-l-4 border-l-green-500 shadow-sm">
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div>
@@ -110,14 +110,14 @@ export default async function PerformancePage(props: { searchParams: Promise<{ m
                                     Across {userStats?.totalAttempts || 0} total cases
                                 </p>
                             </div>
-                            <div className="p-2 bg-green-50 rounded-full">
-                                <Target className="h-5 w-5 text-green-600" />
+                            <div className="rounded-full bg-green-100 p-2 dark:bg-green-950/50">
+                                <Target className="h-5 w-5 text-green-600 dark:text-green-300" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-purple-500 shadow-sm">
+                <Card className="border-l-4 border-l-purple-500 shadow-sm">
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div>
@@ -127,14 +127,14 @@ export default async function PerformancePage(props: { searchParams: Promise<{ m
                                     Cumulative performance points
                                 </p>
                             </div>
-                            <div className="p-2 bg-purple-50 rounded-full">
-                                <TrendingUp className="h-5 w-5 text-purple-600" />
+                            <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-950/50">
+                                <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-300" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm">
+                <Card className="border-l-4 border-l-orange-500 shadow-sm">
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div>
@@ -148,8 +148,8 @@ export default async function PerformancePage(props: { searchParams: Promise<{ m
                                     Last case completed
                                 </p>
                             </div>
-                            <div className="p-2 bg-orange-50 rounded-full">
-                                <Activity className="h-5 w-5 text-orange-600" />
+                            <div className="rounded-full bg-orange-100 p-2 dark:bg-orange-950/50">
+                                <Activity className="h-5 w-5 text-orange-600 dark:text-orange-300" />
                             </div>
                         </div>
                     </CardContent>
