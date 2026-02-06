@@ -60,6 +60,9 @@ export default async function UkmlaPage(props: {
                     <Link href="/ukmla/review">
                         <Button variant="outline">Review Queue</Button>
                     </Link>
+                    <Link href="/rivision">
+                        <Button variant="outline">Rivision</Button>
+                    </Link>
                     <Link href="/leaderboard?mode=ukmla">
                         <Button variant="outline">UKMLA Leaderboard</Button>
                     </Link>

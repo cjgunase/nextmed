@@ -15,6 +15,13 @@
       "when": 1769800000000,
       "tag": "0001_ukmla_module",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769805000000,
+      "tag": "0002_rivision_notes",
+      "breakpoints": true
     }
   ]
 }

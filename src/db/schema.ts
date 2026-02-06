@@ -8,6 +8,7 @@ import {
     integer,
     jsonb,
     index,
+    uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 // ============================================================================
@@ -33,6 +34,12 @@ export const ukmlaCategories = [
     'PrescribingAndSafety',
 ] as const;
 export type UkmlaCategory = typeof ukmlaCategories[number];
+
+export const rivisionContextTypes = ['ukmla_question', 'case', 'category'] as const;
+export type RivisionContextType = typeof rivisionContextTypes[number];
+
+export const rivisionEvidenceTypes = ['ukmla_attempt', 'case_attempt'] as const;
+export type RivisionEvidenceType = typeof rivisionEvidenceTypes[number];
 
 // ============================================================================
 // TABLE: users
@@ -65,6 +72,7 @@ export const cases = pgTable('cases', {
     verificationStatus: text('verification_status').default('draft').notNull(), // 'draft', 'verified', 'rejected'
     qualityScore: integer('quality_score').default(0).notNull(), // 0-100 score
     rigourScore: integer('rigour_score').default(0).notNull(), // 0-100 human expert quality assessment
+    rivisionClusterKey: text('rivision_cluster_key'),
     isPublished: boolean('is_published').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -245,6 +253,7 @@ export const ukmlaQuestions = pgTable(
         verificationStatus: text('verification_status').default('draft').notNull(),
         qualityScore: integer('quality_score').default(0).notNull(),
         rigourScore: integer('rigour_score').default(0).notNull(),
+        rivisionClusterKey: text('rivision_cluster_key'),
         isPublished: boolean('is_published').default(false).notNull(),
         createdAt: timestamp('created_at').defaultNow().notNull(),
         updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -395,6 +404,115 @@ export const ukmlaSpacedRepetitionCards = pgTable(
     })
 );
 
+// ============================================================================
+// TABLE: rivision_note_taxonomy (Domain-specific reusable cluster taxonomy)
+// ============================================================================
+
+export const rivisionNoteTaxonomy = pgTable(
+    'rivision_note_taxonomy',
+    {
+        id: serial('id').primaryKey(),
+        domain: text('domain').notNull(),
+        clusterKey: text('cluster_key').notNull(),
+        clusterLabel: text('cluster_label').notNull(),
+        keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+        active: boolean('active').notNull().default(true),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        domainIdx: index('rivision_taxonomy_domain_idx').on(table.domain),
+        domainClusterUnique: uniqueIndex('rivision_taxonomy_domain_cluster_uq').on(table.domain, table.clusterKey),
+    })
+);
+
+// ============================================================================
+// TABLE: rivision_context_clusters (Persisted context->cluster mapping cache)
+// ============================================================================
+
+export const rivisionContextClusters = pgTable(
+    'rivision_context_clusters',
+    {
+        id: serial('id').primaryKey(),
+        contextType: text('context_type', { enum: rivisionContextTypes }).notNull(),
+        contextId: text('context_id').notNull(),
+        domain: text('domain').notNull(),
+        difficultyLevel: text('difficulty_level', { enum: difficultyLevels }),
+        clusterKey: text('cluster_key').notNull(),
+        matchedBy: text('matched_by').notNull().default('heuristic'),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        contextUnique: uniqueIndex('rivision_context_cache_uq').on(table.contextType, table.contextId),
+        domainIdx: index('rivision_context_domain_idx').on(table.domain),
+    })
+);
+
+// ============================================================================
+// TABLE: rivision_notes (Persisted personalized revision notes)
+// ============================================================================
+
+export const rivisionNotes = pgTable(
+    'rivision_notes',
+    {
+        id: serial('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        domain: text('domain').notNull(),
+        difficultyLevel: text('difficulty_level', { enum: difficultyLevels }),
+        clusterKey: text('cluster_key'),
+        title: text('title').notNull(),
+        summary: text('summary').notNull(),
+        keyConcepts: jsonb('key_concepts').$type<string[]>().notNull(),
+        commonMistakes: jsonb('common_mistakes').$type<string[]>().notNull(),
+        rapidChecklist: jsonb('rapid_checklist').$type<string[]>().notNull(),
+        practicePlan: jsonb('practice_plan').$type<string[]>().notNull(),
+        sourceVersion: text('source_version').notNull(),
+        performanceSnapshot: jsonb('performance_snapshot')
+            .$type<{ averageScore: number; totalAttempts: number; capturedAt: string }>()
+            .notNull(),
+        staleAt: timestamp('stale_at'),
+        lastGeneratedAt: timestamp('last_generated_at').defaultNow().notNull(),
+        lastServedAt: timestamp('last_served_at').defaultNow().notNull(),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        userIdx: index('rivision_notes_user_idx').on(table.userId),
+        domainIdx: index('rivision_notes_domain_idx').on(table.domain),
+        staleIdx: index('rivision_notes_stale_idx').on(table.staleAt),
+        userScopeUnique: uniqueIndex('rivision_notes_scope_uq').on(
+            table.userId,
+            table.domain,
+            table.difficultyLevel,
+            table.clusterKey
+        ),
+    })
+);
+
+// ============================================================================
+// TABLE: rivision_note_evidence
+// ============================================================================
+
+export const rivisionNoteEvidence = pgTable(
+    'rivision_note_evidence',
+    {
+        id: serial('id').primaryKey(),
+        noteId: integer('note_id')
+            .notNull()
+            .references(() => rivisionNotes.id, { onDelete: 'cascade' }),
+        sourceType: text('source_type', { enum: rivisionEvidenceTypes }).notNull(),
+        sourceId: integer('source_id').notNull(),
+        weight: integer('weight').notNull().default(1),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        noteIdx: index('rivision_note_evidence_note_idx').on(table.noteId),
+    })
+);
+
 
 // ============================================================================
 // RELATIONS (For Nested Queries)
@@ -419,6 +537,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     ukmlaCategoryStats: many(ukmlaCategoryStats),
     ukmlaDifficultyStats: many(ukmlaDifficultyStats),
     ukmlaSpacedRepetitionCards: many(ukmlaSpacedRepetitionCards),
+    rivisionNotes: many(rivisionNotes),
 }));
 
 export const casesRelations = relations(cases, ({ one, many }) => ({
@@ -554,6 +673,32 @@ export const ukmlaSpacedRepetitionCardsRelations = relations(ukmlaSpacedRepetiti
     }),
 }));
 
+export const rivisionNoteTaxonomyRelations = relations(rivisionNoteTaxonomy, ({ many }) => ({
+    contextClusters: many(rivisionContextClusters),
+}));
+
+export const rivisionContextClustersRelations = relations(rivisionContextClusters, ({ one }) => ({
+    taxonomy: one(rivisionNoteTaxonomy, {
+        fields: [rivisionContextClusters.domain, rivisionContextClusters.clusterKey],
+        references: [rivisionNoteTaxonomy.domain, rivisionNoteTaxonomy.clusterKey],
+    }),
+}));
+
+export const rivisionNotesRelations = relations(rivisionNotes, ({ one, many }) => ({
+    user: one(users, {
+        fields: [rivisionNotes.userId],
+        references: [users.id],
+    }),
+    evidence: many(rivisionNoteEvidence),
+}));
+
+export const rivisionNoteEvidenceRelations = relations(rivisionNoteEvidence, ({ one }) => ({
+    note: one(rivisionNotes, {
+        fields: [rivisionNoteEvidence.noteId],
+        references: [rivisionNotes.id],
+    }),
+}));
+
 // ============================================================================
 // TYPE EXPORTS (For use in application code)
 // ============================================================================
@@ -605,6 +750,18 @@ export type NewUkmlaDifficultyStats = typeof ukmlaDifficultyStats.$inferInsert;
 
 export type UkmlaSpacedRepetitionCard = typeof ukmlaSpacedRepetitionCards.$inferSelect;
 export type NewUkmlaSpacedRepetitionCard = typeof ukmlaSpacedRepetitionCards.$inferInsert;
+
+export type RivisionNoteTaxonomy = typeof rivisionNoteTaxonomy.$inferSelect;
+export type NewRivisionNoteTaxonomy = typeof rivisionNoteTaxonomy.$inferInsert;
+
+export type RivisionContextCluster = typeof rivisionContextClusters.$inferSelect;
+export type NewRivisionContextCluster = typeof rivisionContextClusters.$inferInsert;
+
+export type RivisionNoteRecord = typeof rivisionNotes.$inferSelect;
+export type NewRivisionNoteRecord = typeof rivisionNotes.$inferInsert;
+
+export type RivisionNoteEvidence = typeof rivisionNoteEvidence.$inferSelect;
+export type NewRivisionNoteEvidence = typeof rivisionNoteEvidence.$inferInsert;
 
 
 // ============================================================================

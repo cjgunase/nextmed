@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
-    "db:seed:ukmla": "tsx src/db/seed-ukmla.ts"
+    "db:seed:ukmla": "tsx src/db/seed-ukmla.ts",
+    "db:seed:rivision-taxonomy": "tsx src/db/seed-rivision-taxonomy.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.1",

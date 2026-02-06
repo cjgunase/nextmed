@@ -64,6 +64,11 @@ export default function RootLayout({
                         UKMLA
                       </Button>
                     </Link>
+                    <Link href="/rivision">
+                      <Button variant="ghost" size="sm">
+                        Rivision
+                      </Button>
+                    </Link>
                     <Link href="/leaderboard">
                       <Button variant="ghost" size="sm">
                         🏆 Leaderboard
