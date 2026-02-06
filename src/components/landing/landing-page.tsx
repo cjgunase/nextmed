@@ -48,7 +48,7 @@ const parallaxSections: ParallaxSectionConfig[] = [
 ];
 
 export function LandingPage() {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useReducedMotion() ?? false;
 
   useEffect(() => {
     if (shouldReduceMotion) return;
