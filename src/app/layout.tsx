@@ -38,7 +38,9 @@ export default function RootLayout({
           >
             <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/50 bg-background/80 backdrop-blur-sm">
               <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-                <div className="text-xl font-bold text-primary">NextMed</div>
+                <Link href="/" className="text-xl font-bold text-primary">
+                  NextMed.Ai
+                </Link>
                 <div className="flex items-center gap-4">
                   <ModeToggle />
                   <SignedOut>
