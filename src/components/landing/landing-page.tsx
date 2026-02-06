@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import Lenis from "lenis";
 import { useReducedMotion } from "framer-motion";
 import { HeroParallaxIntro } from "@/components/landing/hero-parallax-intro";
 import { LandingDescription } from "@/components/landing/landing-description";
@@ -49,30 +47,6 @@ const parallaxSections: ParallaxSectionConfig[] = [
 
 export function LandingPage() {
   const shouldReduceMotion = useReducedMotion() ?? false;
-
-  useEffect(() => {
-    if (shouldReduceMotion) return;
-
-    const lenis = new Lenis({
-      duration: 1.15,
-      wheelMultiplier: 0.9,
-      touchMultiplier: 1.1,
-    });
-
-    let rafId = 0;
-
-    const raf = (time: number) => {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    };
-
-    rafId = requestAnimationFrame(raf);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      lenis.destroy();
-    };
-  }, [shouldReduceMotion]);
 
   return (
     <main className="landing-root relative -mt-16">
