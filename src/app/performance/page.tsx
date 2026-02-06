@@ -13,12 +13,15 @@ import Link from 'next/link';
 import { PerformanceCharts } from '@/components/performance-chart';
 import { ArrowRight, Trophy, Target, Activity, TrendingUp } from 'lucide-react';
 
-export default async function PerformancePage() {
+export default async function PerformancePage(props: { searchParams: Promise<{ mode?: string }> }) {
     const { userId } = await auth();
 
     if (!userId) {
         redirect('/sign-in');
     }
+
+    const searchParams = await props.searchParams;
+    const mode = searchParams.mode === 'cases' || searchParams.mode === 'ukmla' ? searchParams.mode : 'all';
 
     // Fetch all user statistics in parallel
     const [
@@ -28,11 +31,11 @@ export default async function PerformancePage() {
         percentileResult,
         recentAttemptsResult
     ] = await Promise.all([
-        getCategoryStats(),
-        getDifficultyStats(),
-        getStudentStats(),
-        getPercentileRank(),
-        getRecentAttempts(5)
+        getCategoryStats(undefined, mode),
+        getDifficultyStats(undefined, mode),
+        getStudentStats(undefined, mode),
+        getPercentileRank(undefined, mode),
+        getRecentAttempts(5, mode)
     ]);
 
     const categoryStats = categoryStatsResult.success ? categoryStatsResult.data : [];
@@ -55,14 +58,26 @@ export default async function PerformancePage() {
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Performance Analytics</h1>
                     <p className="text-muted-foreground mt-1">
-                        Track your progress, identify strengths, and improve your clinical skills
+                        Track your progress, identify strengths, and improve your clinical skills ({mode.toUpperCase()})
                     </p>
                 </div>
-                <Link href="/review">
+                <Link href={mode === 'ukmla' ? '/ukmla/review' : '/review'}>
                     <Button variant="default" className="bg-blue-600 hover:bg-blue-700">
                         <Activity className="mr-2 h-4 w-4" />
                         Practice Spaced Repetition
                     </Button>
+                </Link>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                <Link href="/performance?mode=all">
+                    <Button variant={mode === 'all' ? 'default' : 'outline'} size="sm">All</Button>
+                </Link>
+                <Link href="/performance?mode=cases">
+                    <Button variant={mode === 'cases' ? 'default' : 'outline'} size="sm">Cases</Button>
+                </Link>
+                <Link href="/performance?mode=ukmla">
+                    <Button variant={mode === 'ukmla' ? 'default' : 'outline'} size="sm">UKMLA</Button>
                 </Link>
             </div>
 
@@ -172,7 +187,7 @@ export default async function PerformancePage() {
                                             />
                                         </div>
                                         <div className="flex justify-end">
-                                            <Link href={`/cases?domain=${area.clinicalDomain}`}>
+                                            <Link href={mode === 'ukmla' ? `/ukmla?category=${area.clinicalDomain}` : `/cases?domain=${area.clinicalDomain}`}>
                                                 <Button size="sm" variant="link" className="text-xs h-auto p-0 text-red-600">
                                                     Practice {area.clinicalDomain} <ArrowRight className="h-3 w-3 ml-1" />
                                                 </Button>
@@ -184,7 +199,7 @@ export default async function PerformancePage() {
                         ) : (
                             <div className="text-center py-8 text-muted-foreground text-sm">
                                 <p className="mb-2">🎉 No weak areas found!</p>
-                                <p>You're performing well across all categories attempted.</p>
+                                <p>You&apos;re performing well across all categories attempted.</p>
                             </div>
                         )}
                     </CardContent>

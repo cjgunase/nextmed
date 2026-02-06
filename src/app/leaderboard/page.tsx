@@ -6,13 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ukmlaCategories } from '@/db/schema';
 
 /**
  * Leaderboard Page - Server Component
  */
-export default async function LeaderboardPage(props: { searchParams: Promise<{ category?: string; difficulty?: string }> }) {
+export default async function LeaderboardPage(props: { searchParams: Promise<{ category?: string; difficulty?: string; mode?: string }> }) {
     const searchParams = await props.searchParams;
     const { category, difficulty } = searchParams;
+    const mode =
+        typeof (searchParams as { mode?: string }).mode === 'string'
+            ? (searchParams as { mode?: string }).mode
+            : 'all';
+    const normalizedMode = mode === 'cases' || mode === 'ukmla' ? mode : 'all';
 
     // 1. Authenticate user
     const { userId } = await auth();
@@ -24,21 +30,24 @@ export default async function LeaderboardPage(props: { searchParams: Promise<{ c
     // 2. Fetch leaderboard and user's own stats
     // Pass filters to getLeaderboard
     const [leaderboardResult, userStatsResult] = await Promise.all([
-        getLeaderboard(100, category, difficulty),
-        getStudentStats(),
+        getLeaderboard(100, category, difficulty, normalizedMode),
+        getStudentStats(undefined, normalizedMode),
     ]);
 
     const leaderboard = leaderboardResult.success ? leaderboardResult.data : [];
     const userStats = userStatsResult.success ? userStatsResult.data : null;
 
     // Categories to filter by
-    const categories = ['Cardiology', 'Respiratory', 'Neurology', 'Gastroenterology', 'Musculoskeletal', 'Endocrinology'];
+    const caseCategories = ['Cardiology', 'Respiratory', 'Neurology', 'Gastroenterology', 'Musculoskeletal', 'Endocrinology'];
+    const categories = normalizedMode === 'ukmla' ? ukmlaCategories : caseCategories;
     const difficultyLevels = ['Foundation', 'Core', 'Advanced'];
 
     const getTitle = () => {
+        if (normalizedMode === 'cases') return 'Cases Leaderboard';
+        if (normalizedMode === 'ukmla') return 'UKMLA Leaderboard';
         if (category) return `Top Students in ${category}`;
         if (difficulty) return `Top Students - ${difficulty} Level`;
-        return 'Global Leaderboard';
+        return 'Combined Leaderboard';
     };
 
     return (
@@ -60,14 +69,32 @@ export default async function LeaderboardPage(props: { searchParams: Promise<{ c
             {/* Filters */}
             <div className="mb-6 space-y-4">
                 <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium text-muted-foreground mr-2">Mode:</span>
+                    <Link href="/leaderboard?mode=all">
+                        <Badge variant={normalizedMode === 'all' ? 'default' : 'outline'} className="cursor-pointer">
+                            All
+                        </Badge>
+                    </Link>
+                    <Link href="/leaderboard?mode=cases">
+                        <Badge variant={normalizedMode === 'cases' ? 'default' : 'outline'} className="cursor-pointer">
+                            Cases
+                        </Badge>
+                    </Link>
+                    <Link href="/leaderboard?mode=ukmla">
+                        <Badge variant={normalizedMode === 'ukmla' ? 'default' : 'outline'} className="cursor-pointer">
+                            UKMLA
+                        </Badge>
+                    </Link>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-sm font-medium text-muted-foreground mr-2">Category:</span>
-                    <Link href="/leaderboard">
-                        <Badge variant={!category && !difficulty ? "default" : "outline"} className="cursor-pointer">
+                    <Link href={`/leaderboard?mode=${normalizedMode}`}>
+                        <Badge variant={!category ? "default" : "outline"} className="cursor-pointer">
                             All
                         </Badge>
                     </Link>
                     {categories.map(cat => (
-                        <Link key={cat} href={`/leaderboard?category=${cat}`}>
+                        <Link key={cat} href={`/leaderboard?mode=${normalizedMode}&category=${cat}`}>
                             <Badge variant={category === cat ? "default" : "outline"} className="cursor-pointer">
                                 {cat}
                             </Badge>
@@ -77,7 +104,7 @@ export default async function LeaderboardPage(props: { searchParams: Promise<{ c
                 <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-sm font-medium text-muted-foreground mr-2">Difficulty:</span>
                     {difficultyLevels.map(level => (
-                        <Link key={level} href={`/leaderboard?difficulty=${level}`}>
+                        <Link key={level} href={`/leaderboard?mode=${normalizedMode}&difficulty=${level}`}>
                             <Badge variant={difficulty === level ? "default" : "outline"} className="cursor-pointer">
                                 {level}
                             </Badge>

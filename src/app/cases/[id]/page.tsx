@@ -103,7 +103,7 @@ export default async function CasePage({
                     <h3 className="text-xl font-semibold mb-3">Ready to Practice?</h3>
                     <p className="text-muted-foreground mb-6">
                         Start the simulation to test your clinical reasoning skills.
-                        You'll interact with the patient and make decisions in real-time.
+                        You&apos;ll interact with the patient and make decisions in real-time.
                     </p>
                     <Link href={`/cases/${caseId}/simulate`}>
                         <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto">

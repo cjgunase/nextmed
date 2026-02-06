@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CaseWithStagesAndOptions } from "@/types/simulator-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
     const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
     const [selectedOptionIds, setSelectedOptionIds] = useState<Record<number, number>>({});
     const [isComplete, setIsComplete] = useState(false);
-    const [attemptSaved, setAttemptSaved] = useState(false);
+    const attemptSavedRef = useRef(false);
     const { width, height } = useWindowSize();
 
     const currentStage = medicalCase.stages[currentStageIndex];
@@ -62,17 +62,17 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
         setShowingFeedback(false);
         setSelectedOptionId(null);
         setIsComplete(false);
-        setAttemptSaved(false);
+        attemptSavedRef.current = false;
         setSelectedOptionIds({});
     };
 
     useEffect(() => {
-        if (!isComplete || attemptSaved) return;
-        setAttemptSaved(true);
-        recordAttempt(medicalCase.id, Object.values(selectedOptionIds)).catch((error) => {
+        if (!isComplete || attemptSavedRef.current) return;
+        attemptSavedRef.current = true;
+        void recordAttempt(medicalCase.id, Object.values(selectedOptionIds)).catch((error) => {
             console.error("Failed to save attempt:", error);
         });
-    }, [attemptSaved, isComplete, medicalCase.id, selectedOptionIds]);
+    }, [isComplete, medicalCase.id, selectedOptionIds]);
 
     if (isComplete) {
         return (
@@ -90,7 +90,7 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
 
                     <h2 className="text-3xl font-bold mb-2">Case Completed!</h2>
                     <p className="text-muted-foreground mb-8 text-lg">
-                        You have finished the simulation for "{medicalCase.title}"
+                        You have finished the simulation for &quot;{medicalCase.title}&quot;
                     </p>
 
                     <div className="flex flex-col items-center justify-center bg-muted/50 rounded-lg p-6 mb-8 max-w-xs mx-auto">
@@ -170,7 +170,7 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
                             transition={{ duration: 0.3 }}
                         >
                             <Card className="p-6 border-l-4 border-l-primary shadow-sm">
-                                <PatientPresentation stage={currentStage as any} />
+                                <PatientPresentation stage={currentStage} />
                             </Card>
                         </motion.div>
                     </AnimatePresence>
@@ -187,7 +187,7 @@ export function SimulatorPlayer({ medicalCase }: SimulatorPlayerProps) {
                                 exit={{ opacity: 0, y: -20 }}
                             >
                                 <FeedbackDisplay
-                                    selectedOption={selectedOption as any}
+                                    selectedOption={selectedOption}
                                     onContinue={handleNextStage}
                                 />
                             </motion.div>

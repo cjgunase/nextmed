@@ -17,11 +17,19 @@ import {
     Cell
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CategoryStats, DifficultyStats } from '@/db/schema';
+import type { DifficultyLevel } from '@/db/schema';
 
 interface PerformanceChartsProps {
-    categoryStats: CategoryStats[];
-    difficultyStats: DifficultyStats[];
+    categoryStats: Array<{
+        clinicalDomain: string;
+        totalAttempts: number;
+        averageScore: number;
+    }>;
+    difficultyStats: Array<{
+        difficultyLevel: string | DifficultyLevel;
+        totalAttempts: number;
+        averageScore: number;
+    }>;
 }
 
 export function PerformanceCharts({ categoryStats, difficultyStats }: PerformanceChartsProps) {

@@ -1,4 +1,6 @@
-export type ActionResponse<T = any> = {
+import type { ClinicalData } from "@/db/schema";
+
+export type ActionResponse<T = unknown> = {
     success: boolean;
     message: string;
     data?: T;
@@ -21,7 +23,7 @@ export type CaseWithStagesAndOptions = {
         id: number;
         stageOrder: number;
         narrative: string;
-        clinicalData: unknown;
+        clinicalData: ClinicalData | null;
         mediaUrl: string | null;
         options: {
             id: number;

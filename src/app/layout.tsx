@@ -59,6 +59,11 @@ export default function RootLayout({
                         Cases
                       </Button>
                     </Link>
+                    <Link href="/ukmla">
+                      <Button variant="ghost" size="sm">
+                        UKMLA
+                      </Button>
+                    </Link>
                     <Link href="/leaderboard">
                       <Button variant="ghost" size="sm">
                         🏆 Leaderboard

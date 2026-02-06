@@ -1,27 +1,34 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { useEffect, useRef, useState } from "react";
 
 interface ScoreTrackerProps {
     score: number;
 }
 
 export function ScoreTracker({ score }: ScoreTrackerProps) {
-    const [prevScore, setPrevScore] = useState(score);
+    const prevScoreRef = useRef(score);
     const [difference, setDifference] = useState(0);
     const [showDiff, setShowDiff] = useState(false);
 
     useEffect(() => {
-        if (score !== prevScore) {
-            setDifference(score - prevScore);
+        if (score === prevScoreRef.current) return;
+
+        const diff = score - prevScoreRef.current;
+        prevScoreRef.current = score;
+
+        const showTimer = setTimeout(() => {
+            setDifference(diff);
             setShowDiff(true);
-            const timer = setTimeout(() => {
-                setShowDiff(false);
-                setPrevScore(score);
-            }, 2000);
-            return () => clearTimeout(timer);
-        }
-    }, [score, prevScore]);
+        }, 0);
+        const hideTimer = setTimeout(() => {
+            setShowDiff(false);
+        }, 2000);
+
+        return () => {
+            clearTimeout(showTimer);
+            clearTimeout(hideTimer);
+        };
+    }, [score]);
 
     return (
         <div className="relative inline-flex items-center justify-center min-w-[3rem]">

@@ -31,7 +31,7 @@ export default async function AdminPage() {
                 <div className="max-w-md w-full bg-destructive/10 border border-destructive rounded-lg p-6 text-center">
                     <h1 className="text-2xl font-bold text-destructive mb-2">Access Denied</h1>
                     <p className="text-muted-foreground mb-4">
-                        You don't have admin privileges to access this page.
+                        You don&apos;t have admin privileges to access this page.
                     </p>
                     {userEmail && (
                         <p className="text-sm text-muted-foreground">

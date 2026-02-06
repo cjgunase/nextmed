@@ -1,12 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CaseStage } from "@/db/schema";
+import type { ClinicalData } from "@/db/schema";
 import { ClinicalDataDisplay } from "./ClinicalDataDisplay";
 import { User } from "lucide-react";
 
 interface PatientPresentationProps {
     stage: {
         narrative: string;
-        clinicalData: unknown;
+        clinicalData: ClinicalData | null;
         mediaUrl: string | null;
         stageOrder: number;
     };
@@ -28,9 +27,9 @@ export function PatientPresentation({ stage }: PatientPresentationProps) {
                 </div>
             </div>
 
-            {(stage.clinicalData as any) && (
+            {stage.clinicalData && (
                 <div className="mt-6">
-                    <ClinicalDataDisplay data={stage.clinicalData as any} />
+                    <ClinicalDataDisplay data={stage.clinicalData} />
                 </div>
             )}
 

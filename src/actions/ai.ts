@@ -43,6 +43,38 @@ const CaseSchema = z.object({
     stages: z.array(StageSchema),
 });
 
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return String(error);
+}
+
+function getErrorDetails(error: unknown) {
+    if (typeof error === 'object' && error !== null) {
+        const withOptionalFields = error as {
+            message?: unknown;
+            status?: unknown;
+            type?: unknown;
+            code?: unknown;
+        };
+
+        return {
+            message: withOptionalFields.message,
+            status: withOptionalFields.status,
+            type: withOptionalFields.type,
+            code: withOptionalFields.code,
+        };
+    }
+
+    return {
+        message: String(error),
+        status: undefined,
+        type: undefined,
+        code: undefined,
+    };
+}
+
 export async function generateCaseAction(domain: string, difficulty: string, prompt: string) {
     // 1. Verify Admin
     try {
@@ -204,17 +236,12 @@ export async function generateCaseAction(domain: string, difficulty: string, pro
 
         // ... existing code ...
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("AI Generation Error:", error);
-        console.error("Error details:", {
-            message: error?.message,
-            status: error?.status,
-            type: error?.type,
-            code: error?.code
-        });
+        console.error("Error details:", getErrorDetails(error));
 
         // Return more detailed error message
-        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        const errorMessage = getErrorMessage(error) || 'Unknown error';
         return {
             success: false,
             message: `Failed to generate case: ${errorMessage}`
@@ -258,9 +285,8 @@ export async function generateClinicalDataAction(narrative: string) {
 
         const data = JSON.parse(content);
         return { success: true, data };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Clinical Data Generation Error:", error);
-        return { success: false, message: error.message };
+        return { success: false, message: getErrorMessage(error) };
     }
 }
-

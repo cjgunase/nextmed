@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { useEffect, useRef, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -42,9 +42,9 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
     const [score, setScore] = useState(0);
     const [selectedOption, setSelectedOption] = useState<Option | null>(null);
     const [isGameFinished, setIsGameFinished] = useState(false);
-    const [attemptSaved, setAttemptSaved] = useState(false);
     const [nextReviewDate, setNextReviewDate] = useState<Date | null>(null);
     const [selectedOptionIds, setSelectedOptionIds] = useState<Record<number, number>>({});
+    const attemptSavedRef = useRef(false);
 
     // Derived state
     const currentStage = simulation.stages[currentStageIndex];
@@ -72,9 +72,9 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
 
     // Record attempt when game finishes
     useEffect(() => {
-        if (isGameFinished && !attemptSaved) {
-            setAttemptSaved(true);
-            recordAttempt(simulation.id, Object.values(selectedOptionIds)).then((result) => {
+        if (isGameFinished && !attemptSavedRef.current) {
+            attemptSavedRef.current = true;
+            void recordAttempt(simulation.id, Object.values(selectedOptionIds)).then((result) => {
                 if (result.success) {
                     if (result.nextReviewDate) {
                         setNextReviewDate(new Date(result.nextReviewDate));
@@ -84,7 +84,7 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
                 }
             });
         }
-    }, [isGameFinished, attemptSaved, simulation.id, selectedOptionIds]);
+    }, [isGameFinished, simulation.id, selectedOptionIds]);
 
     if (isGameFinished) {
         return (
@@ -215,7 +215,7 @@ export function SimulationRunner({ simulation }: SimulationRunnerProps) {
                             <ScrollArea className="h-[calc(100vh-300px)] min-h-[300px]">
                                 {currentStage.clinicalData ? (
                                     <div className="p-4 space-y-4">
-                                        {Object.entries(currentStage.clinicalData as Record<string, any>).map(([key, value]) => {
+                                        {Object.entries(currentStage.clinicalData as Record<string, unknown>).map(([key, value]) => {
                                             // Skip empty or null values if desired, or just render all
                                             if (value === null || value === undefined) return null;
 

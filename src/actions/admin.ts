@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/db';
-import { cases, caseStages, stageOptions, DifficultyLevel } from '@/db/schema';
-import { eq, desc, asc } from 'drizzle-orm';
+import { cases, caseStages, stageOptions, users } from '@/db/schema';
+import { eq, desc, asc, and, count, gte, lte, SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin, getCurrentUserId } from '@/lib/admin';
@@ -55,6 +55,113 @@ export async function getAllCases() {
     });
 }
 
+const getAdminCasesSchema = z.object({
+    page: z.number().int().min(1).default(1),
+    pageSize: z.number().int().min(1).max(100).default(25),
+    creatorId: z.string().optional(),
+    clinicalDomain: z.string().optional(),
+    dateField: z.enum(['created', 'modified']).default('created'),
+    dateFrom: z.string().optional(),
+    dateTo: z.string().optional(),
+});
+
+export async function getAdminCases(input?: z.infer<typeof getAdminCasesSchema>) {
+    await requireAdmin();
+
+    const parsed = getAdminCasesSchema.safeParse(input ?? {});
+    if (!parsed.success) {
+        return {
+            cases: [],
+            pagination: {
+                page: 1,
+                pageSize: 25,
+                totalItems: 0,
+                totalPages: 0,
+            },
+            filterOptions: {
+                creators: [],
+                categories: [],
+            },
+        };
+    }
+
+    const { page, pageSize, creatorId, clinicalDomain, dateField, dateFrom, dateTo } = parsed.data;
+    const filters: SQL[] = [];
+
+    if (creatorId && creatorId !== 'all') {
+        filters.push(eq(cases.userId, creatorId));
+    }
+
+    if (clinicalDomain && clinicalDomain !== 'all') {
+        filters.push(eq(cases.clinicalDomain, clinicalDomain));
+    }
+
+    const dateColumn = dateField === 'created' ? cases.createdAt : cases.updatedAt;
+    if (dateFrom) {
+        filters.push(gte(dateColumn, new Date(`${dateFrom}T00:00:00.000Z`)));
+    }
+    if (dateTo) {
+        filters.push(lte(dateColumn, new Date(`${dateTo}T23:59:59.999Z`)));
+    }
+
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+
+    const [{ totalItems }] = await db
+        .select({ totalItems: count() })
+        .from(cases)
+        .where(whereClause);
+
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+    const safePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    const [pagedCases, creatorRows, categoryRows] = await Promise.all([
+        db.query.cases.findMany({
+            where: whereClause,
+            orderBy: [desc(cases.updatedAt)],
+            limit: pageSize,
+            offset,
+            with: {
+                stages: {
+                    orderBy: [asc(caseStages.stageOrder)],
+                    with: {
+                        options: true,
+                    },
+                },
+                user: true,
+            },
+        }),
+        db.selectDistinct({
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+        })
+            .from(cases)
+            .innerJoin(users, eq(cases.userId, users.id))
+            .orderBy(users.email),
+        db.selectDistinct({
+            category: cases.clinicalDomain,
+        })
+            .from(cases)
+            .orderBy(cases.clinicalDomain),
+    ]);
+
+    return {
+        cases: pagedCases,
+        pagination: {
+            page: safePage,
+            pageSize,
+            totalItems,
+            totalPages,
+        },
+        filterOptions: {
+            creators: creatorRows,
+            categories: categoryRows.map((row) => row.category),
+        },
+    };
+}
+
 export async function createCase(data: z.infer<typeof createCaseSchema>) {
     try {
         await requireAdmin();
@@ -81,7 +188,7 @@ export async function createCase(data: z.infer<typeof createCaseSchema>) {
     }
 }
 
-export async function createStage(data: any) {
+export async function createStage(data: z.infer<typeof createStageSchema>) {
     try {
         await requireAdmin();
     } catch (e) {

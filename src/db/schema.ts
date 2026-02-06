@@ -20,6 +20,20 @@ export type UserRole = typeof userRoles[number];
 export const difficultyLevels = ['Foundation', 'Core', 'Advanced'] as const;
 export type DifficultyLevel = typeof difficultyLevels[number];
 
+export const ukmlaCategories = [
+    'Cardiology',
+    'Respiratory',
+    'Neurology',
+    'Gastroenterology',
+    'Endocrinology',
+    'Renal',
+    'InfectiousDiseases',
+    'EmergencyMedicine',
+    'EthicsAndLaw',
+    'PrescribingAndSafety',
+] as const;
+export type UkmlaCategory = typeof ukmlaCategories[number];
+
 // ============================================================================
 // TABLE: users
 // ============================================================================
@@ -212,6 +226,175 @@ export const spacedRepetitionCards = pgTable(
     })
 );
 
+// ============================================================================
+// TABLE: ukmla_questions (Single-best-answer UKMLA MCQs)
+// ============================================================================
+
+export const ukmlaQuestions = pgTable(
+    'ukmla_questions',
+    {
+        id: serial('id').primaryKey(),
+        createdByUserId: text('created_by_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        stem: text('stem').notNull(),
+        explanation: text('explanation').notNull(),
+        category: text('category', { enum: ukmlaCategories }).notNull(),
+        difficultyLevel: text('difficulty_level', { enum: difficultyLevels }).notNull(),
+        source: text('source').default('human').notNull(),
+        verificationStatus: text('verification_status').default('draft').notNull(),
+        qualityScore: integer('quality_score').default(0).notNull(),
+        rigourScore: integer('rigour_score').default(0).notNull(),
+        isPublished: boolean('is_published').default(false).notNull(),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        creatorIdx: index('ukmla_questions_creator_idx').on(table.createdByUserId),
+        categoryIdx: index('ukmla_questions_category_idx').on(table.category),
+        difficultyIdx: index('ukmla_questions_difficulty_idx').on(table.difficultyLevel),
+        publishedIdx: index('ukmla_questions_published_idx').on(table.isPublished),
+    })
+);
+
+// ============================================================================
+// TABLE: ukmla_question_options
+// ============================================================================
+
+export const ukmlaQuestionOptions = pgTable(
+    'ukmla_question_options',
+    {
+        id: serial('id').primaryKey(),
+        questionId: integer('question_id')
+            .notNull()
+            .references(() => ukmlaQuestions.id, { onDelete: 'cascade' }),
+        text: text('text').notNull(),
+        isCorrect: boolean('is_correct').notNull().default(false),
+        optionOrder: integer('option_order').notNull().default(1),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        questionIdx: index('ukmla_question_options_question_idx').on(table.questionId),
+    })
+);
+
+// ============================================================================
+// TABLE: ukmla_attempts
+// ============================================================================
+
+export const ukmlaAttempts = pgTable(
+    'ukmla_attempts',
+    {
+        id: serial('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        questionId: integer('question_id')
+            .notNull()
+            .references(() => ukmlaQuestions.id, { onDelete: 'cascade' }),
+        selectedOptionId: integer('selected_option_id')
+            .notNull()
+            .references(() => ukmlaQuestionOptions.id, { onDelete: 'cascade' }),
+        isCorrect: boolean('is_correct').notNull(),
+        score: integer('score').notNull().default(0),
+        completedAt: timestamp('completed_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        userIdx: index('ukmla_attempts_user_idx').on(table.userId),
+        questionIdx: index('ukmla_attempts_question_idx').on(table.questionId),
+        userQuestionIdx: index('ukmla_attempts_user_question_idx').on(table.userId, table.questionId),
+    })
+);
+
+// ============================================================================
+// TABLE: ukmla_user_stats
+// ============================================================================
+
+export const ukmlaUserStats = pgTable('ukmla_user_stats', {
+    userId: text('user_id')
+        .primaryKey()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    totalAttempts: integer('total_attempts').notNull().default(0),
+    totalCorrect: integer('total_correct').notNull().default(0),
+    totalScore: integer('total_score').notNull().default(0),
+    averageScore: integer('average_score').notNull().default(0),
+    lastActivityAt: timestamp('last_activity_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// TABLE: ukmla_category_stats
+// ============================================================================
+
+export const ukmlaCategoryStats = pgTable(
+    'ukmla_category_stats',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        category: text('category', { enum: ukmlaCategories }).notNull(),
+        totalAttempts: integer('total_attempts').notNull().default(0),
+        totalCorrect: integer('total_correct').notNull().default(0),
+        totalScore: integer('total_score').notNull().default(0),
+        averageScore: integer('average_score').notNull().default(0),
+        lastAttemptAt: timestamp('last_attempt_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        pk: index('ukmla_category_stats_pk').on(table.userId, table.category),
+        userIdx: index('ukmla_category_stats_user_idx').on(table.userId),
+    })
+);
+
+// ============================================================================
+// TABLE: ukmla_difficulty_stats
+// ============================================================================
+
+export const ukmlaDifficultyStats = pgTable(
+    'ukmla_difficulty_stats',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        difficultyLevel: text('difficulty_level', { enum: difficultyLevels }).notNull(),
+        totalAttempts: integer('total_attempts').notNull().default(0),
+        totalCorrect: integer('total_correct').notNull().default(0),
+        totalScore: integer('total_score').notNull().default(0),
+        averageScore: integer('average_score').notNull().default(0),
+        lastAttemptAt: timestamp('last_attempt_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        pk: index('ukmla_difficulty_stats_pk').on(table.userId, table.difficultyLevel),
+        userIdx: index('ukmla_difficulty_stats_user_idx').on(table.userId),
+    })
+);
+
+// ============================================================================
+// TABLE: ukmla_spaced_repetition_cards
+// ============================================================================
+
+export const ukmlaSpacedRepetitionCards = pgTable(
+    'ukmla_spaced_repetition_cards',
+    {
+        id: serial('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        questionId: integer('question_id')
+            .notNull()
+            .references(() => ukmlaQuestions.id, { onDelete: 'cascade' }),
+        repetitions: integer('repetitions').notNull().default(0),
+        easeFactor: integer('ease_factor').notNull().default(2500),
+        interval: integer('interval').notNull().default(1),
+        nextReviewDate: timestamp('next_review_date').notNull().defaultNow(),
+        lastReviewedAt: timestamp('last_reviewed_at'),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        userQuestionIdx: index('ukmla_sr_cards_user_question_idx').on(table.userId, table.questionId),
+        dueIdx: index('ukmla_sr_cards_due_idx').on(table.nextReviewDate),
+        userIdx: index('ukmla_sr_cards_user_idx').on(table.userId),
+    })
+);
+
 
 // ============================================================================
 // RELATIONS (For Nested Queries)
@@ -227,6 +410,15 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     categoryStats: many(categoryStats),
     difficultyStats: many(difficultyStats),
     spacedRepetitionCards: many(spacedRepetitionCards),
+    ukmlaCreatedQuestions: many(ukmlaQuestions),
+    ukmlaAttempts: many(ukmlaAttempts),
+    ukmlaStats: one(ukmlaUserStats, {
+        fields: [users.id],
+        references: [ukmlaUserStats.userId],
+    }),
+    ukmlaCategoryStats: many(ukmlaCategoryStats),
+    ukmlaDifficultyStats: many(ukmlaDifficultyStats),
+    ukmlaSpacedRepetitionCards: many(ukmlaSpacedRepetitionCards),
 }));
 
 export const casesRelations = relations(cases, ({ one, many }) => ({
@@ -297,6 +489,71 @@ export const spacedRepetitionCardsRelations = relations(spacedRepetitionCards, (
     }),
 }));
 
+export const ukmlaQuestionsRelations = relations(ukmlaQuestions, ({ one, many }) => ({
+    creator: one(users, {
+        fields: [ukmlaQuestions.createdByUserId],
+        references: [users.id],
+    }),
+    options: many(ukmlaQuestionOptions),
+    attempts: many(ukmlaAttempts),
+    spacedRepetitionCards: many(ukmlaSpacedRepetitionCards),
+}));
+
+export const ukmlaQuestionOptionsRelations = relations(ukmlaQuestionOptions, ({ one, many }) => ({
+    question: one(ukmlaQuestions, {
+        fields: [ukmlaQuestionOptions.questionId],
+        references: [ukmlaQuestions.id],
+    }),
+    attempts: many(ukmlaAttempts),
+}));
+
+export const ukmlaAttemptsRelations = relations(ukmlaAttempts, ({ one }) => ({
+    user: one(users, {
+        fields: [ukmlaAttempts.userId],
+        references: [users.id],
+    }),
+    question: one(ukmlaQuestions, {
+        fields: [ukmlaAttempts.questionId],
+        references: [ukmlaQuestions.id],
+    }),
+    selectedOption: one(ukmlaQuestionOptions, {
+        fields: [ukmlaAttempts.selectedOptionId],
+        references: [ukmlaQuestionOptions.id],
+    }),
+}));
+
+export const ukmlaUserStatsRelations = relations(ukmlaUserStats, ({ one }) => ({
+    user: one(users, {
+        fields: [ukmlaUserStats.userId],
+        references: [users.id],
+    }),
+}));
+
+export const ukmlaCategoryStatsRelations = relations(ukmlaCategoryStats, ({ one }) => ({
+    user: one(users, {
+        fields: [ukmlaCategoryStats.userId],
+        references: [users.id],
+    }),
+}));
+
+export const ukmlaDifficultyStatsRelations = relations(ukmlaDifficultyStats, ({ one }) => ({
+    user: one(users, {
+        fields: [ukmlaDifficultyStats.userId],
+        references: [users.id],
+    }),
+}));
+
+export const ukmlaSpacedRepetitionCardsRelations = relations(ukmlaSpacedRepetitionCards, ({ one }) => ({
+    user: one(users, {
+        fields: [ukmlaSpacedRepetitionCards.userId],
+        references: [users.id],
+    }),
+    question: one(ukmlaQuestions, {
+        fields: [ukmlaSpacedRepetitionCards.questionId],
+        references: [ukmlaQuestions.id],
+    }),
+}));
+
 // ============================================================================
 // TYPE EXPORTS (For use in application code)
 // ============================================================================
@@ -328,6 +585,27 @@ export type NewDifficultyStats = typeof difficultyStats.$inferInsert;
 export type SpacedRepetitionCard = typeof spacedRepetitionCards.$inferSelect;
 export type NewSpacedRepetitionCard = typeof spacedRepetitionCards.$inferInsert;
 
+export type UkmlaQuestion = typeof ukmlaQuestions.$inferSelect;
+export type NewUkmlaQuestion = typeof ukmlaQuestions.$inferInsert;
+
+export type UkmlaQuestionOption = typeof ukmlaQuestionOptions.$inferSelect;
+export type NewUkmlaQuestionOption = typeof ukmlaQuestionOptions.$inferInsert;
+
+export type UkmlaAttempt = typeof ukmlaAttempts.$inferSelect;
+export type NewUkmlaAttempt = typeof ukmlaAttempts.$inferInsert;
+
+export type UkmlaUserStats = typeof ukmlaUserStats.$inferSelect;
+export type NewUkmlaUserStats = typeof ukmlaUserStats.$inferInsert;
+
+export type UkmlaCategoryStats = typeof ukmlaCategoryStats.$inferSelect;
+export type NewUkmlaCategoryStats = typeof ukmlaCategoryStats.$inferInsert;
+
+export type UkmlaDifficultyStats = typeof ukmlaDifficultyStats.$inferSelect;
+export type NewUkmlaDifficultyStats = typeof ukmlaDifficultyStats.$inferInsert;
+
+export type UkmlaSpacedRepetitionCard = typeof ukmlaSpacedRepetitionCards.$inferSelect;
+export type NewUkmlaSpacedRepetitionCard = typeof ukmlaSpacedRepetitionCards.$inferInsert;
+
 
 // ============================================================================
 // CLINICAL DATA TYPE (For the JSONB field)
@@ -346,5 +624,5 @@ export interface ClinicalData {
     notes?: string[];
 
     // Flexible for any other data
-    [key: string]: any;
+    [key: string]: unknown;
 }

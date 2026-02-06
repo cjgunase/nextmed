@@ -1,6 +1,6 @@
-import { motion } from "framer-motion";
-import { Activity, Heart, Thermometer, Wind, Droplets } from "lucide-react";
+import { Activity, Thermometer, Wind, Droplets } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ReactNode } from "react";
 
 interface ClinicalData {
     BP?: string;
@@ -10,7 +10,7 @@ interface ClinicalData {
     SpO2?: number;
     notes?: string[];
     labs?: Record<string, string | number>;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 interface ClinicalDataDisplayProps {
@@ -21,7 +21,7 @@ export function ClinicalDataDisplay({ data }: ClinicalDataDisplayProps) {
     if (!data) return null;
 
     // Helper to determine if a value is abnormal (rudimentary logic for demo)
-    const isAbnormal = (key: string, value: any) => {
+    const isAbnormal = (key: string, value: unknown) => {
         if (!value) return false;
         // Add more sophisticated logic later
         if (key === 'SpO2' && typeof value === 'number' && value < 94) return true;
@@ -111,7 +111,15 @@ export function ClinicalDataDisplay({ data }: ClinicalDataDisplayProps) {
     );
 }
 
-function VitalSign({ icon, label, value, unit, abnormal }: any) {
+type VitalSignProps = {
+    icon: ReactNode;
+    label: string;
+    value: string | number | null | undefined;
+    unit: string;
+    abnormal: boolean;
+};
+
+function VitalSign({ icon, label, value, unit, abnormal }: VitalSignProps) {
     if (value === undefined || value === null) return null;
 
     return (

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
-    getAllCases,
+    getAdminCases,
     createCase,
     createStage,
     createOption,
@@ -72,7 +73,7 @@ type Stage = {
     caseId: number;
     stageOrder: number;
     narrative: string;
-    clinicalData: any;
+    clinicalData: unknown;
     mediaUrl?: string | null;
     options: Option[];
 };
@@ -85,6 +86,64 @@ type Option = {
     scoreWeight: number;
     feedback: string;
 };
+
+type CreatorOption = {
+    id: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+};
+
+type AdminCasesQuery = {
+    page: number;
+    pageSize: number;
+    creatorId: string;
+    clinicalDomain: string;
+    dateField: 'created' | 'modified';
+    dateFrom: string;
+    dateTo: string;
+};
+
+type DifficultyLevel = 'Foundation' | 'Core' | 'Advanced';
+type VerificationStatus = 'draft' | 'verified' | 'rejected';
+
+type CaseFormInput = {
+    title: string;
+    description: string;
+    clinicalDomain: string;
+    difficultyLevel: DifficultyLevel | '' | 'auto';
+    userId: string;
+};
+
+type EditCaseFormInput = {
+    id?: number;
+    title?: string;
+    description?: string;
+    clinicalDomain?: string;
+    difficultyLevel?: DifficultyLevel;
+    verificationStatus?: VerificationStatus;
+    qualityScore?: number;
+    rigourScore?: number;
+};
+
+type EditStageFormInput = {
+    id?: number;
+    narrative?: string;
+    clinicalData?: string;
+    mediaUrl?: string | null;
+};
+
+type EditOptionFormInput = {
+    id?: number;
+    text?: string;
+    isCorrect?: boolean;
+    scoreWeight?: number;
+    feedback?: string;
+};
+
+function isDifficultyLevel(value: string): value is DifficultyLevel {
+    return value === 'Foundation' || value === 'Core' || value === 'Advanced';
+}
 
 // Helper function to check if a case is complete and ready to publish
 function isCaseComplete(caseItem: Case): { complete: boolean; reason?: string } {
@@ -112,7 +171,20 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ userEmail, userId }: AdminDashboardProps) {
     const [cases, setCases] = useState<Case[]>([]);
+    const [creators, setCreators] = useState<CreatorOption[]>([]);
+    const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
+    const [query, setQuery] = useState<AdminCasesQuery>({
+        page: 1,
+        pageSize: 25,
+        creatorId: 'all',
+        clinicalDomain: 'all',
+        dateField: 'created',
+        dateFrom: '',
+        dateTo: '',
+    });
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
 
     // View State
     const [expandedCaseId, setExpandedCaseId] = useState<number | null>(null);
@@ -124,12 +196,12 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
     const [editingOptionId, setEditingOptionId] = useState<number | null>(null);
 
     // Edit Forms
-    const [editCaseForm, setEditCaseForm] = useState<Partial<Case>>({});
-    const [editStageForm, setEditStageForm] = useState<Partial<Stage>>({});
-    const [editOptionForm, setEditOptionForm] = useState<Partial<Option>>({});
+    const [editCaseForm, setEditCaseForm] = useState<EditCaseFormInput>({});
+    const [editStageForm, setEditStageForm] = useState<EditStageFormInput>({});
+    const [editOptionForm, setEditOptionForm] = useState<EditOptionFormInput>({});
 
     // Form States
-    const [newCase, setNewCase] = useState({
+    const [newCase, setNewCase] = useState<CaseFormInput>({
         title: '',
         description: '',
         clinicalDomain: '',
@@ -153,16 +225,53 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
         handleRefresh();
     }, []);
 
-    const handleRefresh = async () => {
+    const handleRefresh = async (override?: Partial<AdminCasesQuery>) => {
         setLoading(true);
         try {
-            const data = await getAllCases();
-            if (data) setCases(data as unknown as Case[]);
+            const nextQuery = { ...query, ...override };
+            const data = await getAdminCases({
+                page: nextQuery.page,
+                pageSize: nextQuery.pageSize,
+                creatorId: nextQuery.creatorId === 'all' ? undefined : nextQuery.creatorId,
+                clinicalDomain: nextQuery.clinicalDomain === 'all' ? undefined : nextQuery.clinicalDomain,
+                dateField: nextQuery.dateField,
+                dateFrom: nextQuery.dateFrom || undefined,
+                dateTo: nextQuery.dateTo || undefined,
+            });
+
+            if (data) {
+                setCases(data.cases as unknown as Case[]);
+                setCreators(data.filterOptions.creators as CreatorOption[]);
+                setCategories(data.filterOptions.categories);
+                setTotalItems(data.pagination.totalItems);
+                setTotalPages(data.pagination.totalPages);
+                setQuery((prev) => ({
+                    ...prev,
+                    ...nextQuery,
+                    page: data.pagination.page,
+                    pageSize: data.pagination.pageSize,
+                }));
+            }
         } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
         }
+    };
+
+    const applyFilters = async () => {
+        await handleRefresh({ page: 1 });
+    };
+
+    const clearFilters = async () => {
+        await handleRefresh({
+            page: 1,
+            creatorId: 'all',
+            clinicalDomain: 'all',
+            dateField: 'created',
+            dateFrom: '',
+            dateTo: '',
+        });
     };
 
     const handleGenerateClinicalData = async (narrative: string, target: 'new' | 'edit') => {
@@ -186,8 +295,12 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
     };
 
     const handleCreateCase = async () => {
+        if (!isDifficultyLevel(newCase.difficultyLevel)) {
+            alert('Please select a valid difficulty level');
+            return;
+        }
         setLoading(true);
-        const res = await createCase({ ...newCase, difficultyLevel: newCase.difficultyLevel as any });
+        const res = await createCase({ ...newCase, difficultyLevel: newCase.difficultyLevel });
         if (res.success) {
             setNewCase({ title: '', description: '', clinicalDomain: '', difficultyLevel: '', userId });
             await handleRefresh();
@@ -259,15 +372,34 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
             description: caseItem.description,
             clinicalDomain: caseItem.clinicalDomain,
             difficultyLevel: caseItem.difficultyLevel,
-            verificationStatus: caseItem.verificationStatus || 'draft',
+            verificationStatus: (caseItem.verificationStatus as VerificationStatus | undefined) || 'draft',
             qualityScore: caseItem.qualityScore || 0,
             rigourScore: caseItem.rigourScore || 0,
         });
     };
 
     const saveCase = async () => {
+        if (
+            editCaseForm.id === undefined ||
+            !editCaseForm.title ||
+            !editCaseForm.description ||
+            !editCaseForm.clinicalDomain ||
+            !editCaseForm.difficultyLevel
+        ) {
+            alert('Please fill all required fields before saving');
+            return;
+        }
         setLoading(true);
-        const res = await updateCase(editCaseForm as any);
+        const res = await updateCase({
+            id: editCaseForm.id,
+            title: editCaseForm.title,
+            description: editCaseForm.description,
+            clinicalDomain: editCaseForm.clinicalDomain,
+            difficultyLevel: editCaseForm.difficultyLevel,
+            verificationStatus: editCaseForm.verificationStatus,
+            qualityScore: editCaseForm.qualityScore,
+            rigourScore: editCaseForm.rigourScore,
+        });
         if (res.success) {
             setEditingCaseId(null);
             await handleRefresh();
@@ -295,8 +427,21 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
     };
 
     const saveStage = async () => {
+        if (
+            editStageForm.id === undefined ||
+            !editStageForm.narrative ||
+            editStageForm.clinicalData === undefined
+        ) {
+            alert('Please fill all required stage fields before saving');
+            return;
+        }
         setLoading(true);
-        const res = await updateStage(editStageForm as any);
+        const res = await updateStage({
+            id: editStageForm.id,
+            narrative: editStageForm.narrative,
+            clinicalData: editStageForm.clinicalData,
+            mediaUrl: editStageForm.mediaUrl,
+        });
         if (res.success) {
             setEditingStageId(null);
             await handleRefresh();
@@ -331,8 +476,24 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
     };
 
     const saveOption = async () => {
+        if (
+            editOptionForm.id === undefined ||
+            !editOptionForm.text ||
+            editOptionForm.isCorrect === undefined ||
+            editOptionForm.scoreWeight === undefined ||
+            !editOptionForm.feedback
+        ) {
+            alert('Please fill all required option fields before saving');
+            return;
+        }
         setLoading(true);
-        const res = await updateOption(editOptionForm as any);
+        const res = await updateOption({
+            id: editOptionForm.id,
+            text: editOptionForm.text,
+            isCorrect: editOptionForm.isCorrect,
+            scoreWeight: editOptionForm.scoreWeight,
+            feedback: editOptionForm.feedback,
+        });
         if (res.success) {
             setEditingOptionId(null);
             await handleRefresh();
@@ -361,6 +522,11 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Scenario Builder</h1>
                     <p className="text-muted-foreground">Design and edit clinical simulation cases with full control.</p>
+                    <div className="mt-3">
+                        <Link href="/admin/ukmla" className="text-sm text-primary hover:underline">
+                            Open UKMLA Question Bank →
+                        </Link>
+                    </div>
                 </div>
                 <div className="text-right">
                     <p className="text-sm font-medium">Admin Access</p>
@@ -404,7 +570,7 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                             <Label>Difficulty</Label>
                             <Select
                                 value={newCase.difficultyLevel || "auto"} // Default to auto for display
-                                onValueChange={(val) => setNewCase({ ...newCase, difficultyLevel: val })}
+                                onValueChange={(val) => setNewCase({ ...newCase, difficultyLevel: val as DifficultyLevel | 'auto' })}
                             >
                                 <SelectTrigger className="bg-background">
                                     <SelectValue placeholder="Auto-detect (AI)" />
@@ -481,8 +647,129 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
             </Card>
 
             <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Existing Cases ({cases.length})</h2>
-                {cases.map((c) => (
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                    <h2 className="text-xl font-semibold">Existing Cases ({totalItems})</h2>
+                    <div className="text-xs text-muted-foreground">
+                        Page {query.page} of {Math.max(totalPages, 1)} • {query.pageSize} per page
+                    </div>
+                </div>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Case Filters</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="space-y-2">
+                            <Label>Creator</Label>
+                            <Select
+                                value={query.creatorId}
+                                onValueChange={(val) => setQuery((prev) => ({ ...prev, creatorId: val }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All creators" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All creators</SelectItem>
+                                    {creators.map((creator) => (
+                                        <SelectItem key={creator.id} value={creator.id}>
+                                            {creator.firstName
+                                                ? `${creator.firstName} ${creator.lastName || ''} (${creator.email})`
+                                                : creator.email}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Category</Label>
+                            <Select
+                                value={query.clinicalDomain}
+                                onValueChange={(val) => setQuery((prev) => ({ ...prev, clinicalDomain: val }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All categories" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All categories</SelectItem>
+                                    {categories.map((category) => (
+                                        <SelectItem key={category} value={category}>
+                                            {category}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Date field</Label>
+                            <Select
+                                value={query.dateField}
+                                onValueChange={(val: 'created' | 'modified') => setQuery((prev) => ({ ...prev, dateField: val }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="created">Created date</SelectItem>
+                                    <SelectItem value="modified">Modified date</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Cases per page</Label>
+                            <Select
+                                value={String(query.pageSize)}
+                                onValueChange={(val) => setQuery((prev) => ({ ...prev, pageSize: Number(val) }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>From</Label>
+                            <Input
+                                type="date"
+                                value={query.dateFrom}
+                                onChange={(e) => setQuery((prev) => ({ ...prev, dateFrom: e.target.value }))}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>To</Label>
+                            <Input
+                                type="date"
+                                value={query.dateTo}
+                                onChange={(e) => setQuery((prev) => ({ ...prev, dateTo: e.target.value }))}
+                            />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="gap-2">
+                        <Button onClick={applyFilters} disabled={loading}>
+                            Apply Filters
+                        </Button>
+                        <Button variant="outline" onClick={clearFilters} disabled={loading}>
+                            Reset
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                {cases.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-10 text-center text-muted-foreground">
+                            No cases found for the selected filters.
+                        </CardContent>
+                    </Card>
+                ) : cases.map((c) => (
                     <Card key={c.id} id={`case-${c.id}`} className="overflow-hidden border-l-4 border-l-primary/50">
                         <div
                             className="p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
@@ -601,7 +888,7 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                                         <Label>Difficulty Level</Label>
                                         <Select
                                             value={editCaseForm.difficultyLevel}
-                                            onValueChange={(val: any) => setEditCaseForm({ ...editCaseForm, difficultyLevel: val })}
+                                            onValueChange={(val: DifficultyLevel) => setEditCaseForm({ ...editCaseForm, difficultyLevel: val })}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue />
@@ -617,7 +904,7 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                                         <Label>Verification Status</Label>
                                         <Select
                                             value={editCaseForm.verificationStatus || 'draft'}
-                                            onValueChange={(val) => setEditCaseForm({ ...editCaseForm, verificationStatus: val })}
+                                            onValueChange={(val) => setEditCaseForm({ ...editCaseForm, verificationStatus: val as VerificationStatus })}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue />
@@ -946,6 +1233,35 @@ export default function AdminDashboard({ userEmail, userId }: AdminDashboardProp
                         )}
                     </Card>
                 ))}
+
+                {totalPages > 1 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <p className="text-sm text-muted-foreground">
+                            Showing {(query.page - 1) * query.pageSize + 1} to {Math.min(query.page * query.pageSize, totalItems)} of {totalItems}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRefresh({ page: query.page - 1 })}
+                                disabled={loading || query.page <= 1}
+                            >
+                                Previous
+                            </Button>
+                            <span className="text-sm">
+                                {query.page} / {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRefresh({ page: query.page + 1 })}
+                                disabled={loading || query.page >= totalPages}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
