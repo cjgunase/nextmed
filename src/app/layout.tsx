@@ -10,6 +10,7 @@ import {
 } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
+import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import "./globals.css";
@@ -82,6 +83,7 @@ export default function RootLayout({
               </div>
             </header>
             <div className="pt-16">{children}</div>
+            <SiteFooter />
           </ThemeProvider>
         </body>
       </html>

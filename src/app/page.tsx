@@ -1,8 +1,5 @@
-import Link from "next/link";
-import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
@@ -49,29 +46,6 @@ export default function Home() {
             NextMed combines case simulation, UKMLA-style practice, and personalized revision so you can train like
             real clinical work while staying aligned with exam outcomes.
           </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <SignedOut>
-              <SignUpButton mode="modal">
-                <Button size="lg">Create Free Account</Button>
-              </SignUpButton>
-              <SignInButton mode="modal">
-                <Button size="lg" variant="outline">
-                  Sign In
-                </Button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/cases">
-                <Button size="lg">Start Clinical Cases</Button>
-              </Link>
-              <Link href="/ukmla">
-                <Button size="lg" variant="outline">
-                  Practice UKMLA
-                </Button>
-              </Link>
-            </SignedIn>
-          </div>
         </div>
       </section>
 
